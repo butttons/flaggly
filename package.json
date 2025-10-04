@@ -5,7 +5,7 @@
 	"scripts": {
 		"deploy": "wrangler types && wrangler deploy",
 		"dev": "wrangler dev",
-		"build": "wrangler build",
+		"build": "wrangler types && wrangler build",
 		"start": "wrangler dev",
 		"cf-typegen": "wrangler types",
 		"test": "vitest",
@@ -36,6 +36,12 @@
 			},
 			"SERVICE_KEY": {
 				"description": "This is the admin service API key and will be used for managing the flags. Generate a random string using `openssl rand -hex 32`."
+			},
+			"ORIGIN": {
+				"description": "Allowed origin for the service. A comma separated list for multiple origins."
+			},
+			"ORIGINS": {
+				"description": "Allowed origin for the service. An array of origins."
 			}
 		}
 	}

@@ -12,7 +12,8 @@
 	},
 	"vars": {
 		"API_KEY": "",
-		"ORIGIN": []
+		"ORIGIN": "",
+		"ORIGINS": []
 	},
 	"kv_namespaces": [
 		{

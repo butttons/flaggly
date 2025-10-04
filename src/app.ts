@@ -12,13 +12,15 @@ app.use(
 		origin: (_, ctx) => {
 			const incomingOrigin = ctx.req.header("Origin");
 
+			const allowedOrigins = ctx.env.ORIGIN.split(",");
+
 			if (!incomingOrigin) return undefined;
 
-			if (ctx.env.ORIGIN.length === 1) {
-				return ctx.env.ORIGIN[0];
+			if (allowedOrigins.length === 1) {
+				return allowedOrigins[0];
 			}
 
-			const matchingOrigin = ctx.env.ORIGIN.find(
+			const matchingOrigin = allowedOrigins.find(
 				(origin) => origin === incomingOrigin,
 			);
 
