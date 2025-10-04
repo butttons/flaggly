@@ -2,6 +2,8 @@
 
 A simple feature flag service built to work on Cloudflare.
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/butttons/flaggly)
+
 ## Features
 
 - Boolean flags - Plain old `true` or `false`
