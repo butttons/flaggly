@@ -1,0 +1,42 @@
+{
+	"name": "@flaggly/core",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler types && wrangler deploy",
+		"dev": "wrangler dev",
+		"build": "wrangler build",
+		"start": "wrangler dev",
+		"cf-typegen": "wrangler types",
+		"test": "vitest",
+		"test:run": "vitest run",
+		"build:sdk": "tsup sdk/index.ts --dts --format esm,cjs --tsconfig sdk/tsconfig.sdk.json --out-dir sdk/dist",
+		"sandbox:sdk": "tsx sdk/sandbox.ts"
+	},
+	"dependencies": {
+		"hono": "^4.9.9",
+		"jexl": "^2.3.0",
+		"zod": "^4.1.11"
+	},
+	"devDependencies": {
+		"@types/jexl": "^2.3.4",
+		"@types/node": "22.13.0",
+		"@types/service-worker-mock": "^2.0.4",
+		"nanostores": "^1.0.1",
+		"tsup": "^8.5.0",
+		"tsx": "^4.20.6",
+		"typescript": "^5.9.2",
+		"vitest": "^3.2.4",
+		"wrangler": "^4.40.2"
+	},
+	"cloudflare": {
+		"bindings": {
+			"API_KEY": {
+				"description": "This is the public facing API key used in the client SDK. Generate a random string using `openssl rand -hex 32`."
+			},
+			"SERVICE_KEY": {
+				"description": "This is the admin service API key and will be used for managing the flags. Generate a random string using `openssl rand -hex 32`."
+			}
+		}
+	}
+}

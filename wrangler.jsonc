@@ -1,0 +1,24 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "flaggly",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-09-27",
+	"observability": {
+		"enabled": true
+	},
+	"vars": {
+		"API_KEY": "",
+		"ORIGIN": []
+	},
+	"kv_namespaces": [
+		{
+			"binding": "FLAGGLY_KV",
+			"id": "6a81166629b64f96b044aa69a55c6536",
+			"preview_id": "6a81166629b64f96b044aa69a55c6536"
+		}
+	]
+}
