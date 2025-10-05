@@ -1,14 +1,276 @@
 # Flaggly
 
-A simple feature flag service built to work on Cloudflare.
+Flaggly is a lightweight, self-hosted feature flag service running on Cloudflare Workers. Deploy your own instance in minutes with boolean flags, payload flags, A/B testing, and progressive rollouts.
+
+
+
+## Deployment
+
+### Service bindings
+The worker uses the following service bindings to function. 
+1. `FLAGGLY_KV` - [Cloudflare Workers KV](https://developers.cloudflare.com/kv/) - The main database for storing flags.
+2. `API_KEY` - [Environment variable](https://developers.cloudflare.com/workers/configuration/environment-variables/) - The public facing API key used by the client.
+3. `SERVICE_KEY` - [Secret](https://developers.cloudflare.com/workers/configuration/secrets/) - The admin API key used to manage the flags.
+4. `ORIGIN` - [Environment variable](https://developers.cloudflare.com/workers/configuration/environment-variables/) - Allowed CORS origin or list of origins which can use the service. Use a comma separated list to allow multiple origins.
+
+
+### Quick Deploy
+The quickest way to get an instance up and running is by using the automatic GitHub integration with Cloudflare Workers. This is the recommended way.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/butttons/flaggly)
 
-## Features
+The automatic deployment will essentially do the following:
+1. Clone the repository in your Github account.
+2. Use that to build a project.
+3. You can configure the API keys and names in the setup.
 
-- Boolean flags - Plain old `true` or `false`
-- Payload flags - Use _any_ payload
-- Variant flags - Pick a variant and use it's payload or ID.
-- Global kill switch
-- Rules matching JEXL.
-- Segments to reuse across flags.
+### Manual Deploy
+You need to install the following:
+1. pnpm - https://pnpm.io/installation
+2. wrangler - https://developers.cloudflare.com/workers/wrangler/install-and-update/
+3. node - https://nodejs.org/en/download
+
+Then you can manually deploy your project without connecting it to GitHub.
+1. Clone the repository
+```sh
+git clone https://github.com/butttons/flaggly
+```
+
+2. Login with wrangler
+```sh
+cd flaggly
+npx wrangler login
+```
+
+3. Setup the KV namespace. You will need to remove the default entry in the `wrangler.json` before you can create this binding with the same name. You can safely remove the entire `kv_namespaces` field. Then use the following command to create a KV store or [use the dashboard to create one](https://developers.cloudflare.com/kv/get-started/#2-create-a-kv-namespace).
+```sh
+npx wrangler kv namespace create FLAGGLY_KV
+```
+The command should prompt you to add the configuration to the `wrangler.json`. In case you've created the KV store using the dashboard, copy the ID of the KV store from the dashboard and add the following in `wrangler.json`:
+```json
+// ...
+"kv_namespaces": [
+  {
+    "binding": "FLAGGLY_KV",
+    "id": "[KV_STORE_ID]"
+  }
+]
+// ...
+```
+
+4. Setup variables and secrets.
+You can generate a random secret using `openssl rand -hex 32`. 
+- `ORIGIN` - Update the `vars.ORIGIN` value in the `wrangler.json`
+- `API_KEY` - Update the `vars.API_KEY` value in the `wrangler.json`
+- `SERVICE_KEY` - Create a new file `.dev.vars` from the `.dev.vars.example` and populate it with a secret. This will be automatically deployed as a secret in the worker.
+
+4. Deploy to Cloudflare
+```sh
+pnpm run deploy
+```
+
+## Configuration
+You can interact with your instance once it's deployed. Before proceeding, you will need the following:
+1. URL of the worker. You can find this in the `Settings` tab of your worker, under `Domains & Routes`. Here you can also add a custom domain and disable the default worker domain entirely.
+2. The `SERVICE_KEY` from the deployment. 
+
+All requests require a Bearer token:
+```sh
+Authorization: Bearer YOUR_SERVICE_KEY
+```
+Additional headers can be used to define the app and environment:
+```sh
+X-App-Id: default          # defaults to "default"
+X-Env-Id: production       # defaults to "production"
+```
+
+Use these to manage flags across different apps and environments:
+
+```sh
+# Manage staging environment
+curl https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "X-Env-Id: staging"
+
+# Manage different app
+curl https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "X-App-Id: mobile-app" \
+  -H "X-Env-Id: production"
+```
+
+
+Now you can interact with the API easily:
+
+### Managing flags:
+
+Get all data
+```sh
+curl https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer {SERVICE_KEY}"
+```
+Response
+```json
+{
+  "flags": {
+    "new-checkout": { ... },
+    "dark-mode": { ... }
+  },
+  "segments": {
+    "beta-users": "user.email.endsWith('@company.com')",
+    "premium": "user.tier == 'premium'"
+  }
+}
+```
+
+Create / update flag:
+Boolean flag:
+```sh
+curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "new-checkout",
+    "type": "boolean",
+    "enabled": true,
+    "label": "New Checkout Flow",
+    "description": "Redesigned checkout experience"
+  }'
+```
+
+Variant flag: (A/B test):
+```sh
+curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "button-color",
+    "type": "variant",
+    "enabled": true,
+    "variations": [
+      { "id": "control", "label": "Blue", "weight": 50, "payload": "#0000FF" },
+      { "id": "treatment", "label": "Green", "weight": 50, "payload": "#00FF00" }
+    ]
+  }'
+```
+
+Payload flag:
+```sh
+curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "config",
+    "type": "payload",
+    "enabled": true,
+    "payload": {
+      "apiUrl": "https://api.example.com",
+      "timeout": 5000
+    }
+  }'
+```
+
+Update a flag:
+```sh
+curl -X PATCH https://flaggly.[ACCOUNT].workers.dev/admin/flags \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": false,
+    "description": "Temporarily disabled"
+  }'
+```
+
+Delete a flag:
+```sh
+curl -X DELETE https://flaggly.[ACCOUNT].workers.dev/admin/flags/[FLAG_ID] \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY"
+```
+
+
+### Managing segments
+Create / update a segment:
+```sh
+curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/segments  \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "team-users",
+    "rule": "'\''@company.com'\'' in user.email"
+  }'
+```
+
+Delete a segment:
+```sh
+curl -X DELETE https://flaggly.[ACCOUNT].workers.dev/admin/segments/[SEGMENT_ID]  \
+  -H "Authorization: Bearer YOUR_SERVICE_KEY"
+```
+
+## Usage
+Once you have your flags ready for use, you can install the client side SDK to evaluate them.
+```
+pnpm i @flaggly/sdk
+```
+The SDK uses [nanostores](https://github.com/nanostores/nanostores) to manage the flag state. 
+
+### Setup
+Setup the client:
+```ts 
+// src/lib/flaggly.ts
+import { FlagglyClient } from '@flaggly/sdk';
+
+type Flags = {
+  'new-checkout': { type: 'boolean' };
+  'button-color': { type: 'variant'; result: string };
+  config: { type: 'payload'; result: { apiUrl: string; timeout: number } };
+};
+
+export const flaggly = new FlagglyClient<Flags>({
+  url: 'BASE_URL',
+  apiKey: 'API_KEY',
+});
+
+// Evaluation
+const isNewCheckout = flaggly.getBooleanFlag('new-checkout');
+const buttonColor = flaggly.getVariant('button-color');
+const config = flaggly.getPayloadFlag('config')
+```
+
+For react:
+```ts
+// src/lib/flaggly.ts
+import { FlagValueResult, FlagglyClient } from '@flaggly/sdk';
+import { useStore } from '@nanostores/react';
+
+type Flags = {
+  'new-checkout': { type: 'boolean' };
+  'button-color': { type: 'variant'; result: string };
+  config: { type: 'payload'; result: { apiUrl: string; timeout: number } };
+};
+
+export const flaggly = new FlagglyClient<Flags>({
+  url: 'BASE_URL',
+  apiKey: 'API_KEY',
+});
+
+export const useFlag = <K extends keyof Flags>(key: K): FlagValueResult<Flags[K]> => {
+  const data = useStore(flaggly.getStore(), {
+    keys: [key],
+  });
+  return data?.[key]?.result ?? false;
+};
+
+// Component usage
+const isNewCheckout = useFlag('new-checkout');
+```
+
+Identifying a user once they log in:
+```ts
+flaggly.identify(userId: string, user: unknown);
+```
+This will re-evaluate the flags again and reset the state.
+
+You can disable the flag evaluation on load by passing `lazy: false` to the constructor.
+
+### Reference
+

@@ -39,9 +39,6 @@
 			},
 			"ORIGIN": {
 				"description": "Allowed origin for the service. A comma separated list for multiple origins."
-			},
-			"ORIGINS": {
-				"description": "Allowed origin for the service. An array of origins."
 			}
 		}
 	}
