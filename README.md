@@ -271,6 +271,3 @@ flaggly.identify(userId: string, user: unknown);
 This will re-evaluate the flags again and reset the state.
 
 You can disable the flag evaluation on load by passing `lazy: false` to the constructor.
-
-### Reference
-

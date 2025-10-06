@@ -288,3 +288,7 @@ export const evaluateBatchOutputSchema = record(
 	string(),
 	nullable(evaluateOutputSchema),
 );
+
+export const paramSchema = object({
+	id: string(),
+});

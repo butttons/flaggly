@@ -1,5 +1,8 @@
 import { type MapStore, map } from "nanostores";
 
+// Type from nanostores
+type AllKeys<T> = T extends any ? keyof T : never;
+
 type BooleanFlag = {
 	type: "boolean";
 };
@@ -14,9 +17,8 @@ type PayloadFlag<T = unknown> = {
 	result: T;
 };
 
-export type BaseFlag = BooleanFlag | VariantFlag | PayloadFlag;
-
-export type FlagDefinitions = Record<string, BaseFlag>;
+export type FlagConfig = BooleanFlag | VariantFlag | PayloadFlag;
+export type FlagSchema = Record<string, FlagConfig>;
 
 export type FlagInput = {
 	user?: unknown;
@@ -26,7 +28,7 @@ export type FlagInput = {
 	};
 };
 
-export type FlagValueResult<FR extends BaseFlag = BaseFlag> = FR extends {
+export type FlagValue<FR extends FlagConfig = FlagConfig> = FR extends {
 	type: "variant";
 }
 	? FR["result"]
@@ -34,27 +36,58 @@ export type FlagValueResult<FR extends BaseFlag = BaseFlag> = FR extends {
 		? FR["result"]
 		: boolean;
 
-export type FlagValues<FD extends FlagDefinitions = FlagDefinitions> = {
-	[K in keyof FD]: FlagValueResult<FD[K]>;
+export type FlagValues<FD extends FlagSchema = FlagSchema> = {
+	[K in keyof FD]: FlagValue<FD[K]>;
 };
 
-export type FlagResult<FD extends FlagDefinitions = FlagDefinitions> = {
+export type EvaluatedFlags<FD extends FlagSchema = FlagSchema> = {
 	[K in keyof FD]: {
 		type: FD[K]["type"];
-		result: FlagValueResult<FD[K]>;
+		result: FlagValue<FD[K]>;
 	};
 };
 
-export type FlagglyOptions<TFlags extends FlagDefinitions = FlagDefinitions> = {
+export type FlagglyOptions<TFlags extends FlagSchema = FlagSchema> = {
+	/**
+	 * The base URL of your Flaggly worker.
+	 */
 	url: string;
+	/**
+	 * The public `API_KEY` you set while installing the worker.
+	 */
 	apiKey: string;
+	/**
+	 * Optional app for this instance.
+	 * @default "default"
+	 */
 	app?: string;
+	/**
+	 * Optional enviornment for this instance
+	 * @default "production"
+	 */
 	env?: string;
+	/**
+	 * By default, flags are evaluated when you create the FlagglyClient instance.
+	 * Pass this as true to manually initiate the flag evaluations.
+	 * Useful if you just care about feature flags for authenticated users only,
+	 * and want to evaluate flags when the users log in.
+	 * @default false
+	 */
 	lazy?: boolean;
+	/**
+	 * Partial default values for the feature flags.
+	 */
 	bootstrap?: Partial<FlagValues<TFlags>>;
+	/**
+	 * Optional method to generate a backup identifer for the flags,
+	 * for anonymous users when you don't have a stable ID.
+	 * By default, it generate and store a value in local host per app/env.
+	 * Use this method to pass in your own ID for anonymous users.
+	 */
+	getBackupId?: () => string;
 };
 
-export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
+export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 	private url: string;
 	private apiKey: string;
 	private app: string;
@@ -62,9 +95,10 @@ export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
 
 	public user?: unknown;
 	public id?: string;
-	public userKey?: string;
 
-	#flags: MapStore<FlagResult<TFlags>>;
+	public getBackupId?: () => string;
+
+	#flags: MapStore<EvaluatedFlags<TFlags>> = map();
 
 	constructor({
 		url,
@@ -73,14 +107,16 @@ export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
 		env = "production",
 		lazy = false,
 		bootstrap,
+		getBackupId,
 	}: FlagglyOptions<TFlags>) {
 		this.url = url;
 		this.apiKey = apiKey;
 		this.app = app;
 		this.env = env;
+		this.getBackupId = getBackupId;
 
 		const defValues = bootstrap
-			? Object.entries(bootstrap).reduce<FlagResult<TFlags>>(
+			? Object.entries(bootstrap).reduce<EvaluatedFlags<TFlags>>(
 					(acc, [flagKey, flagValue]) => {
 						const type =
 							typeof flagValue === "boolean"
@@ -95,40 +131,48 @@ export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
 						};
 						return acc;
 					},
-					{} as FlagResult<TFlags>,
+					{} as EvaluatedFlags<TFlags>,
 				)
 			: undefined;
 
-		this.#flags = map<FlagResult<TFlags>>(defValues);
+		if (defValues) {
+			this.#flags.set(defValues);
+		}
 
 		if (!lazy) {
-			this.#fetchFlags();
+			this.fetchFlags();
 		}
 	}
 
-	async identify(id: string, user: unknown): Promise<FlagResult<TFlags>> {
+	async identify(id: string, user: unknown): Promise<EvaluatedFlags<TFlags>> {
 		this.id = id;
 		this.user = user;
-		return await this.#fetchFlags({ id, user });
+		return await this.fetchFlags({ id, user });
 	}
 
-	#getUrl() {
+	getPageUrl() {
 		if ("window" in globalThis) {
-			return window.location.href;
+			return globalThis.window.location.href;
 		}
 
 		return null;
 	}
 
 	#getBackupId() {
+		if (this.getBackupId) {
+			return this.getBackupId();
+		}
 		if ("window" in globalThis) {
-			const storage = window.localStorage.getItem("__flaggly_id");
+			const key = `__flaggly_id.${this.app}.${this.env}`;
+			const storage = globalThis.window.localStorage.getItem(key);
 			if (!storage) {
 				const id = globalThis.crypto.randomUUID();
-				window.localStorage.setItem("__flaggly_id", id);
+				globalThis.window.localStorage.setItem(key, id);
+				return id;
 			}
 			return storage;
 		}
+		return globalThis.crypto.randomUUID();
 	}
 
 	async #request<T>(
@@ -139,8 +183,9 @@ export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
 		} = {},
 	): Promise<T> {
 		const { method = "POST", body } = options;
+		const url = new URL(path, this.url);
 
-		const response = await fetch(`${this.url}${path}`, {
+		const response = await fetch(url, {
 			method,
 			headers: {
 				Authorization: `Bearer ${this.apiKey}`,
@@ -152,22 +197,26 @@ export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
 		});
 
 		if (!response.ok) {
-			throw new Error(`Request failed: ${response.statusText}`, {
-				cause: await response.json(),
-			});
+			let cause: unknown;
+			try {
+				cause = await response.json();
+			} catch {
+				cause = await response.text();
+			}
+			throw new Error(`Request failed: ${response.statusText}`, { cause });
 		}
 
 		return response.json();
 	}
 
-	async #fetchFlags(input?: FlagInput): Promise<FlagResult<TFlags>> {
-		const result = await this.#request<FlagResult<TFlags>>("/api/eval", {
+	async fetchFlags(input?: FlagInput): Promise<EvaluatedFlags<TFlags>> {
+		const result = await this.#request<EvaluatedFlags<TFlags>>("/api/eval", {
 			method: "POST",
 			body: {
 				id: input?.id ?? this.id ?? this.#getBackupId(),
 				user: input?.user ?? this.user,
 				page: {
-					url: this.#getUrl(),
+					url: this.getPageUrl(),
 				},
 			},
 		});
@@ -178,37 +227,65 @@ export class FlagglyClient<TFlags extends FlagDefinitions = FlagDefinitions> {
 		return result;
 	}
 
+	async fetchFlag<K extends AllKeys<EvaluatedFlags<TFlags>>>(
+		key: K,
+		input?: FlagInput,
+	): Promise<EvaluatedFlags<TFlags>[K]> {
+		const result = await this.#request<EvaluatedFlags<TFlags>[K]>(
+			`/api/eval/${String(key)}`,
+			{
+				method: "POST",
+				body: {
+					id: input?.id ?? this.id ?? this.#getBackupId(),
+					user: input?.user ?? this.user,
+					page: {
+						url: this.getPageUrl(),
+					},
+				},
+			},
+		);
+
+		if (result) {
+			this.#flags.setKey(key, result);
+		}
+		return result;
+	}
+
 	getFlags() {
 		return this.#flags.get();
 	}
 
-	getFlag<K extends keyof TFlags>(key: K): FlagValueResult<TFlags[K]> {
+	getFlag<K extends keyof TFlags>(key: K): FlagValue<TFlags[K]> {
 		const flags = this.#flags.get();
 		return flags?.[key]?.result;
 	}
 
 	getBooleanFlag<K extends keyof TFlags>(
 		key: K & (TFlags[K] extends { type: "boolean" } ? K : never),
-	): FlagValueResult<TFlags[K]> | false {
+	): FlagValue<TFlags[K]> | false {
 		const flags = this.#flags.get();
 		return flags[key]?.result ?? false;
 	}
 
 	getVariantFlag<K extends keyof TFlags>(
 		key: K & (TFlags[K] extends { type: "variant" } ? K : never),
-	): FlagValueResult<TFlags[K]> | null {
+	): FlagValue<TFlags[K]> | null {
 		const flags = this.#flags.get();
 		return flags[key]?.result ?? null;
 	}
 
 	getPayloadFlag<K extends keyof TFlags>(
 		key: K & (TFlags[K] extends { type: "payload" } ? K : never),
-	): FlagValueResult<TFlags[K]> | null {
+	): FlagValue<TFlags[K]> | null {
 		const flags = this.#flags.get();
 		return flags[key]?.result ?? null;
 	}
 
-	getStore() {
+	onChange(cb: (flags: EvaluatedFlags<TFlags>) => void) {
+		return this.#flags.subscribe(cb);
+	}
+
+	get store() {
 		return this.#flags;
 	}
 }
