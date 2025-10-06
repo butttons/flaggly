@@ -1,12 +1,21 @@
-import { bearerAuth } from "hono/bearer-auth";
+import { jwt } from "hono/jwt";
 import { validator } from "hono/validator";
 import { omit } from "zod/v4-mini";
+
 import { evaluateFlag } from "../engine";
 import { evaluateInputSchema, paramSchema, requestGeoSchema } from "../schema";
 import { createApp } from "./_app";
 
 export const api = createApp();
-api.use((c, next) => bearerAuth({ token: c.env.API_KEY })(c, next));
+
+api.use((c, next) =>
+	jwt({
+		secret: c.env.JWT_SECRET,
+		verification: {
+			iss: "flaggly.admin",
+		},
+	})(c, next),
+);
 
 const inputValidator = validator("json", (value, c) => {
 	const parsed = omit(evaluateInputSchema, { request: true }).safeParse(value);
@@ -24,38 +33,74 @@ const inputValidator = validator("json", (value, c) => {
 	);
 });
 
-api.post("/eval", inputValidator, async (c) => {
-	const params = c.req.valid("json");
-
-	const headers = Object.fromEntries(c.req.raw.headers.entries());
-	const geo = requestGeoSchema.parse(c.req.raw.cf);
-
-	const data = await c.var.kv.getData();
-
-	const flagResult: Record<string, unknown> = {};
-
-	for (const [flagKey, flag] of Object.entries(data.flags)) {
-		flagResult[flagKey] = evaluateFlag({
-			flag,
-			segments: data.segments,
-			input: {
-				id: params.id,
-				user: params.user,
-				page: params.page,
-				geo,
-				request: {
-					headers: headers,
-				},
-			},
+api.post(
+	"/eval",
+	inputValidator,
+	async (c) => {
+		const params = c.req.valid("json");
+		const { success } = await c.env.FLAGGLY_RATE_LIMITER.limit({
+			key: params.id || "unknown",
 		});
-	}
 
-	return c.json(flagResult);
-});
+		if (!success) {
+			return c.json(
+				{
+					error: "too many",
+				},
+				429,
+			);
+		}
+	},
+
+	async (c) => {
+		const params = c.req.valid("json");
+
+		const headers = Object.fromEntries(c.req.raw.headers.entries());
+		const geo = requestGeoSchema.parse(c.req.raw.cf);
+
+		const data = await c.var.kv.getData();
+
+		const flagResult: Record<string, unknown> = {};
+
+		for (const [flagKey, flag] of Object.entries(data.flags)) {
+			flagResult[flagKey] = evaluateFlag({
+				flag,
+				segments: data.segments,
+				input: {
+					id: params.id,
+					user: params.user,
+					page: params.page,
+					geo,
+					request: {
+						headers: headers,
+					},
+				},
+			});
+		}
+
+		return c.json(flagResult);
+	},
+);
 
 api.post(
 	"/eval/:id",
 	inputValidator,
+	async (c) => {
+		const params = c.req.valid("json");
+		const { success } = await c.env.FLAGGLY_RATE_LIMITER.limit({
+			key: params.id || "unknown",
+		});
+
+		if (!success) {
+			return c.json(
+				{
+					error: "too many",
+				},
+				429,
+			);
+		}
+	},
+
 	validator("param", (value, c) => {
 		const parsed = paramSchema.safeParse(value);
 

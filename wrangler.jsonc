@@ -11,15 +11,23 @@
 		"enabled": true
 	},
 	"vars": {
-		"API_KEY": "",
-		"ORIGIN": "",
-		"ORIGINS": []
+		"ORIGIN": ""
 	},
 	"kv_namespaces": [
 		{
 			"binding": "FLAGGLY_KV",
 			"id": "6a81166629b64f96b044aa69a55c6536",
 			"preview_id": "6a81166629b64f96b044aa69a55c6536"
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "FLAGGLY_RATE_LIMITER",
+			"namespace_id": "1101",
+			"simple": {
+				"limit": 100,
+				"period": 60
+			}
 		}
 	]
 }

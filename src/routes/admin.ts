@@ -1,7 +1,6 @@
-import { bearerAuth } from "hono/bearer-auth";
+import { jwt } from "hono/jwt";
 import { validator } from "hono/validator";
 import { object, string } from "zod/v4-mini";
-
 import {
 	inputFeatureFlagSchema,
 	segmentInputSchema,
@@ -10,7 +9,15 @@ import {
 import { createApp } from "./_app";
 
 export const admin = createApp();
-admin.use((c, next) => bearerAuth({ token: c.env.SERVICE_KEY })(c, next));
+
+admin.use((c, next) =>
+	jwt({
+		secret: c.env.JWT_SECRET,
+		verification: {
+			iss: "flaggly.admin",
+		},
+	})(c, next),
+);
 
 admin.get("/flags", async (c) => {
 	const data = await c.var.kv.getData();

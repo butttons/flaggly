@@ -1,1 +1,1 @@
-SERVICE_KEY=''
+JWT_SECRET=''

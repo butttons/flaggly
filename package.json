@@ -31,11 +31,8 @@
 	},
 	"cloudflare": {
 		"bindings": {
-			"API_KEY": {
-				"description": "This is the public facing API key used in the client SDK. Generate a random string using `openssl rand -hex 32`."
-			},
-			"SERVICE_KEY": {
-				"description": "This is the admin service API key and will be used for managing the flags. Generate a random string using `openssl rand -hex 32`."
+			"JWT_SECRET": {
+				"description": "This is JWT secret used to verify and sign the API requests. Generate a random string using `openssl rand -hex 32`."
 			},
 			"ORIGIN": {
 				"description": "Allowed origin for the service. A comma separated list for multiple origins."

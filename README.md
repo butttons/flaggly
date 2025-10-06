@@ -9,9 +9,8 @@ Flaggly is a lightweight, self-hosted feature flag service running on Cloudflare
 ### Service bindings
 The worker uses the following service bindings to function. 
 1. `FLAGGLY_KV` - [Cloudflare Workers KV](https://developers.cloudflare.com/kv/) - The main database for storing flags.
-2. `API_KEY` - [Environment variable](https://developers.cloudflare.com/workers/configuration/environment-variables/) - The public facing API key used by the client.
-3. `SERVICE_KEY` - [Secret](https://developers.cloudflare.com/workers/configuration/secrets/) - The admin API key used to manage the flags.
-4. `ORIGIN` - [Environment variable](https://developers.cloudflare.com/workers/configuration/environment-variables/) - Allowed CORS origin or list of origins which can use the service. Use a comma separated list to allow multiple origins.
+2. `JWT_SECRET` - [Secret](https://developers.cloudflare.com/workers/configuration/secrets/) - The secret for to sign and verify keys for the API.
+3. `ORIGIN` - [Environment variable](https://developers.cloudflare.com/workers/configuration/environment-variables/) - Allowed CORS origin or list of origins which can use the service. Use a comma separated list to allow multiple origins.
 
 
 ### Quick Deploy
@@ -22,7 +21,7 @@ The quickest way to get an instance up and running is by using the automatic Git
 The automatic deployment will essentially do the following:
 1. Clone the repository in your Github account.
 2. Use that to build a project.
-3. You can configure the API keys and names in the setup.
+3. You can configure the variables, secrets and the project name in the setup. Keep note of the `JWT_SECRET`. You will need it later to generate the JWT tokens.
 
 ### Manual Deploy
 You need to install the following:
@@ -58,25 +57,44 @@ The command should prompt you to add the configuration to the `wrangler.json`. I
 // ...
 ```
 
-4. Setup variables and secrets.
-You can generate a random secret using `openssl rand -hex 32`. 
-- `ORIGIN` - Update the `vars.ORIGIN` value in the `wrangler.json`
-- `API_KEY` - Update the `vars.API_KEY` value in the `wrangler.json`
-- `SERVICE_KEY` - Create a new file `.dev.vars` from the `.dev.vars.example` and populate it with a secret. This will be automatically deployed as a secret in the worker.
+4. Setup the `ORIGIN` variable - Update the `vars.ORIGIN` value in the `wrangler.json`
 
-4. Deploy to Cloudflare
+5. Deploy to Cloudflare
 ```sh
 pnpm run deploy
 ```
 
+6. Set the `JWT_SECRET` via CLI or (with the dashboard)[https://developers.cloudflare.com/workers/configuration/secrets/#via-the-dashboard].
+```sh
+npx wrangler secret put JWT_SECRET
+```
+
+
 ## Configuration
 You can interact with your instance once it's deployed. Before proceeding, you will need the following:
 1. URL of the worker. You can find this in the `Settings` tab of your worker, under `Domains & Routes`. Here you can also add a custom domain and disable the default worker domain entirely.
-2. The `SERVICE_KEY` from the deployment. 
+2. The JWT keys for the API. You can generate the keys by using the `/__generate` endpoint. By default, it will generate a token with a 6 month expiry. You can create your own longer one at [jwt.io](https://www.jwt.io/)
 
-All requests require a Bearer token:
 ```sh
-Authorization: Bearer YOUR_SERVICE_KEY
+curl -X POST https://flaggly.[ACCOUNT].workers.dev/__generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "[JWT_SECRET]"  
+  }'
+```
+Response
+```json
+{
+  "user": "JWT_STRING",
+  "admin": "JWT_STRING"
+}
+
+```
+
+
+All `/admin/*` requests require a Bearer token:
+```sh
+Authorization: Bearer ADMIN_JWT
 ```
 Additional headers can be used to define the app and environment:
 ```sh
@@ -89,12 +107,12 @@ Use these to manage flags across different apps and environments:
 ```sh
 # Manage staging environment
 curl https://flaggly.[ACCOUNT].workers.dev/admin/flags \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "X-Env-Id: staging"
 
 # Manage different app
 curl https://flaggly.[ACCOUNT].workers.dev/admin/flags \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "X-App-Id: mobile-app" \
   -H "X-Env-Id: production"
 ```
@@ -127,7 +145,7 @@ Create / update flag:
 Boolean flag:
 ```sh
 curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "new-checkout",
@@ -141,7 +159,7 @@ curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
 Variant flag: (A/B test):
 ```sh
 curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "button-color",
@@ -157,7 +175,7 @@ curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
 Payload flag:
 ```sh
 curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "config",
@@ -173,7 +191,7 @@ curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/flags \
 Update a flag:
 ```sh
 curl -X PATCH https://flaggly.[ACCOUNT].workers.dev/admin/flags \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "enabled": false,
@@ -184,7 +202,7 @@ curl -X PATCH https://flaggly.[ACCOUNT].workers.dev/admin/flags \
 Delete a flag:
 ```sh
 curl -X DELETE https://flaggly.[ACCOUNT].workers.dev/admin/flags/[FLAG_ID] \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY"
+  -H "Authorization: Bearer ADMIN_JWT"
 ```
 
 
@@ -192,7 +210,7 @@ curl -X DELETE https://flaggly.[ACCOUNT].workers.dev/admin/flags/[FLAG_ID] \
 Create / update a segment:
 ```sh
 curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/segments  \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
+  -H "Authorization: Bearer ADMIN_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "id": "team-users",
@@ -203,7 +221,7 @@ curl -X PUT https://flaggly.[ACCOUNT].workers.dev/admin/segments  \
 Delete a segment:
 ```sh
 curl -X DELETE https://flaggly.[ACCOUNT].workers.dev/admin/segments/[SEGMENT_ID]  \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY"
+  -H "Authorization: Bearer ADMIN_JWT"
 ```
 
 ## Usage
@@ -227,7 +245,7 @@ type Flags = {
 
 export const flaggly = new FlagglyClient<Flags>({
   url: 'BASE_URL',
-  apiKey: 'API_KEY',
+  apiKey: 'USER_JWT',
 });
 
 // Evaluation
@@ -250,7 +268,7 @@ type Flags = {
 
 export const flaggly = new FlagglyClient<Flags>({
   url: 'BASE_URL',
-  apiKey: 'API_KEY',
+  apiKey: 'USER_JWT',
 });
 
 export const useFlag = <K extends keyof Flags>(key: K): FlagValueResult<Flags[K]> => {
