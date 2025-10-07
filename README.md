@@ -88,7 +88,6 @@ Response
   "user": "JWT_STRING",
   "admin": "JWT_STRING"
 }
-
 ```
 
 

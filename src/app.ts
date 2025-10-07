@@ -3,6 +3,8 @@ import { sign } from "hono/jwt";
 import { poweredBy } from "hono/powered-by";
 import { validator } from "hono/validator";
 import { minLength, object, string } from "zod/v4-mini";
+
+import { FlagglyError } from "./error";
 import { createApp } from "./routes/_app";
 import { admin } from "./routes/admin";
 import { api } from "./routes/api";
@@ -70,24 +72,16 @@ app.post(
 	validator("json", (data, c) => {
 		const parsed = secretSchema.safeParse(data);
 		if (!parsed.success) {
-			return c.json(
-				{
-					error: true,
-					code: "Invalid secret",
-					details: parsed.error.issues,
-				},
-				400,
+			const error = new FlagglyError(
+				"Invalid secret",
+				"INVALID_BODY",
+				parsed.error.issues,
 			);
+			return c.json(error, error.getStatusCode());
 		}
 
 		if (c.env.JWT_SECRET !== parsed.data.secret) {
-			return c.json(
-				{
-					error: true,
-					code: "Invalid secret",
-				},
-				400,
-			);
+			return c.json(new FlagglyError("Invalid secret", "INVALID_BODY"), 400);
 		}
 
 		return parsed.data;

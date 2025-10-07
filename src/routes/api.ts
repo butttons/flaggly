@@ -3,6 +3,7 @@ import { validator } from "hono/validator";
 import { omit } from "zod/v4-mini";
 
 import { evaluateFlag } from "../engine";
+import { FlagglyError } from "../error";
 import { evaluateInputSchema, paramSchema, requestGeoSchema } from "../schema";
 import { createApp } from "./_app";
 
@@ -19,18 +20,17 @@ api.use((c, next) =>
 
 const inputValidator = validator("json", (value, c) => {
 	const parsed = omit(evaluateInputSchema, { request: true }).safeParse(value);
-	if (parsed.success) {
-		return parsed.data;
+
+	if (!parsed.success) {
+		const error = new FlagglyError(
+			"Failed to parse request body",
+			"INVALID_BODY",
+			parsed.error.issues,
+		);
+		return c.json(error, error.statusCode);
 	}
-	return c.json(
-		{
-			error: {
-				message: "Invalid request",
-				issues: parsed.error.issues,
-			},
-		},
-		400,
-	);
+
+	return parsed.data;
 });
 
 api.post(
@@ -38,20 +38,16 @@ api.post(
 	inputValidator,
 	async (c) => {
 		const params = c.req.valid("json");
+
 		const { success } = await c.env.FLAGGLY_RATE_LIMITER.limit({
 			key: params.id || "unknown",
 		});
 
 		if (!success) {
-			return c.json(
-				{
-					error: "too many",
-				},
-				429,
-			);
+			const error = new FlagglyError("Too many requests", "TOO_MANY_REQUESTS");
+			return c.json(error, error.statusCode);
 		}
 	},
-
 	async (c) => {
 		const params = c.req.valid("json");
 
@@ -78,7 +74,7 @@ api.post(
 			});
 		}
 
-		return c.json(flagResult);
+		return c.json(flagResult, 200);
 	},
 );
 
@@ -87,35 +83,29 @@ api.post(
 	inputValidator,
 	async (c) => {
 		const params = c.req.valid("json");
+
 		const { success } = await c.env.FLAGGLY_RATE_LIMITER.limit({
 			key: params.id || "unknown",
 		});
 
 		if (!success) {
-			return c.json(
-				{
-					error: "too many",
-				},
-				429,
-			);
+			const error = new FlagglyError("Too many requests", "TOO_MANY_REQUESTS");
+			return c.json(error, error.statusCode);
 		}
 	},
-
 	validator("param", (value, c) => {
 		const parsed = paramSchema.safeParse(value);
 
-		if (parsed.success) {
-			return parsed.data;
+		if (!parsed.success) {
+			const error = new FlagglyError(
+				"Failed to parse parameters",
+				"INVALID_PARAMS",
+				parsed.error.issues,
+			);
+			return c.json(error, error.statusCode);
 		}
-		return c.json(
-			{
-				error: {
-					message: "Invalid request",
-					issues: parsed.error.issues,
-				},
-			},
-			400,
-		);
+
+		return parsed.data;
 	}),
 	async (c) => {
 		const input = c.req.valid("json");
@@ -127,13 +117,8 @@ api.post(
 		const data = await c.var.kv.getData();
 
 		if (!(params.id in data.flags)) {
-			return c.json(
-				{
-					error: true,
-					message: "Flag not found",
-				},
-				404,
-			);
+			const error = new FlagglyError("Flag not found", "NOT_FOUND");
+			return c.json(error, error.statusCode);
 		}
 
 		const flagResult = evaluateFlag({
@@ -150,6 +135,6 @@ api.post(
 			},
 		});
 
-		return c.json(flagResult);
+		return c.json(flagResult, 200);
 	},
 );

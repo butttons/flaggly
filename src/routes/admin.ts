@@ -1,6 +1,7 @@
 import { jwt } from "hono/jwt";
 import { validator } from "hono/validator";
 import { object, string } from "zod/v4-mini";
+import { FlagglyError } from "../error";
 import {
 	inputFeatureFlagSchema,
 	segmentInputSchema,
@@ -9,6 +10,20 @@ import {
 import { createApp } from "./_app";
 
 export const admin = createApp();
+const paramSchema = object({ id: string() });
+
+const paramValidator = validator("param", (value, c) => {
+	const parsed = paramSchema.safeParse(value);
+	if (!parsed.success) {
+		const error = new FlagglyError(
+			"Failed to validate params",
+			"INVALID_PARAMS",
+			parsed.error.issues,
+		);
+		return c.json(error, error.statusCode);
+	}
+	return parsed.data;
+});
 
 admin.use((c, next) =>
 	jwt({
@@ -21,7 +36,7 @@ admin.use((c, next) =>
 
 admin.get("/flags", async (c) => {
 	const data = await c.var.kv.getData();
-	return c.json(data);
+	return c.json(data, 200);
 });
 
 admin.put(
@@ -30,63 +45,48 @@ admin.put(
 		const parsed = inputFeatureFlagSchema.safeParse(value);
 
 		if (!parsed.success) {
-			return c.json({
-				success: false,
-				error: {
-					code: "INVALID_FLAG_INPUT",
-					message: "Invalid input",
-					details: parsed.error.issues,
-				},
-			});
+			const error = new FlagglyError(
+				"Invalid flag input",
+				"INVALID_BODY",
+				parsed.error.issues,
+			);
+			return c.json(error, error.statusCode);
 		}
 
 		return parsed.data;
 	}),
 	async (c) => {
 		const flag = c.req.valid("json");
-		const [result, error] = await c.var.kv.putFlag({
+
+		const [data, error] = await c.var.kv.putFlag({
 			flag,
 		});
 
-		if (error) {
-			return c.json(
-				{
-					success: false,
-					error,
-				},
-				500,
-			);
-		}
-
-		return c.json(result);
+		return error ? c.json(error, error.statusCode) : c.json(data, 200);
 	},
 );
 
 admin.patch(
 	"/flags/:id",
-	validator("param", (value) => object({ id: string() }).parse(value)),
+	paramValidator,
 	validator("json", (value, c) => {
 		const parsed = updateableFeatureFlagSchema.safeParse(value);
 
 		if (!parsed.success) {
-			return c.json({
-				success: false,
-				error: {
-					code: "INVALID_FLAG_INPUT",
-					message: "Invalid input",
-					details: parsed.error.issues,
-				},
-			});
+			const error = new FlagglyError(
+				"Invalid flag input",
+				"INVALID_BODY",
+				parsed.error.issues,
+			);
+			return c.json(error, error.statusCode);
 		}
 
 		if (Object.keys(parsed.data).length === 0) {
-			return c.json({
-				success: false,
-				error: {
-					code: "INVALID_FLAG_INPUT",
-					message: "Update object must have some data",
-				},
-			});
+			const error = new FlagglyError(
+				"Update object must have some fields",
+				"INVALID_BODY",
+			);
+			return c.json(error, error.statusCode);
 		}
 
 		return parsed.data;
@@ -100,41 +100,17 @@ admin.patch(
 			update,
 		});
 
-		if (error) {
-			return c.json(
-				{
-					success: false,
-					error,
-				},
-				500,
-			);
-		}
-
-		return c.json(data);
+		return error ? c.json(error, error.statusCode) : c.json(data, 200);
 	},
 );
 
-admin.delete(
-	"/flags/:id",
-	validator("param", (value) => object({ id: string() }).parse(value)),
-	async (c) => {
-		const { id } = c.req.valid("param");
+admin.delete("/flags/:id", paramValidator, async (c) => {
+	const { id } = c.req.valid("param");
 
-		const [data, error] = await c.var.kv.deleteFlag({ id: id });
+	const [data, error] = await c.var.kv.deleteFlag({ id: id });
 
-		if (error) {
-			return c.json(
-				{
-					success: false,
-					error,
-				},
-				500,
-			);
-		}
-
-		return c.json(data);
-	},
-);
+	return error ? c.json(error, error.statusCode) : c.json(data, 200);
+});
 
 admin.put(
 	"/segments",
@@ -142,59 +118,34 @@ admin.put(
 		const parsed = segmentInputSchema.safeParse(value);
 
 		if (!parsed.success) {
-			return c.json({
-				success: false,
-				error: {
-					code: "INVALID_SEGMENT_INPUT",
-					message: "Invalid input",
-					details: parsed.error.issues,
-				},
-			});
+			const error = new FlagglyError(
+				"Invalid segment input",
+				"INVALID_BODY",
+				parsed.error.issues,
+			);
+			return c.json(error, error.statusCode);
 		}
 
 		return parsed.data;
 	}),
 	async (c) => {
 		const flag = c.req.valid("json");
-		const [result, error] = await c.var.kv.putSegment({
+
+		const [data, error] = await c.var.kv.putSegment({
 			id: flag.id,
 			rule: flag.rule,
 		});
 
-		if (error) {
-			return c.json(
-				{
-					success: false,
-					error,
-				},
-				500,
-			);
-		}
-
-		return c.json(result);
+		return error ? c.json(error, error.statusCode) : c.json(data, 200);
 	},
 );
 
-admin.delete(
-	"/segments/:id",
-	validator("param", (value) => object({ id: string() }).parse(value)),
+admin.delete("/segments/:id", paramValidator, async (c) => {
+	const { id } = c.req.valid("param");
 
-	async (c) => {
-		const { id } = c.req.valid("param");
-		const [result, error] = await c.var.kv.deleteSegment({
-			id,
-		});
+	const [data, error] = await c.var.kv.deleteSegment({
+		id,
+	});
 
-		if (error) {
-			return c.json(
-				{
-					success: false,
-					error,
-				},
-				500,
-			);
-		}
-
-		return c.json(result);
-	},
-);
+	return error ? c.json(error, error.statusCode) : c.json(data, 200);
+});

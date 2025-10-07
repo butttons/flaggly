@@ -1,4 +1,4 @@
-import { AppKVError, tryPromise } from "./error";
+import { FlagglyError, tryPromise } from "./error";
 import type {
 	AppData,
 	FeatureFlagInputSchema,
@@ -66,16 +66,13 @@ export class AppKV {
 		const isValid = input.every((key) => existingSegmentKeys.includes(key));
 
 		if (!isValid) {
-			throw new AppKVError(
-				"Add the segment before using it",
-				"INVALID_FLAG_INPUT",
-			);
+			throw new FlagglyError("Add the segment before using it", "INVALID_BODY");
 		}
 	}
 
 	#checkFlag({ id, data }: { id: string; data: AppData }) {
 		if (!Object.keys(data.flags).includes(id)) {
-			throw new AppKVError("Flag not found", "FLAG_NOT_FOUND");
+			throw new FlagglyError("Flag not found", "NOT_FOUND");
 		}
 	}
 
@@ -95,7 +92,7 @@ export class AppKV {
 	async putFlag({ flag }: { flag: FeatureFlagInputSchema }) {
 		return tryPromise(this.#putFlag({ flag }), {
 			message: "Failed to put flag",
-			code: "INVALID_FLAG_INPUT",
+			code: "PUT_FAILED",
 		});
 	}
 
@@ -129,7 +126,7 @@ export class AppKV {
 	}) {
 		return tryPromise(this.#updateFlag({ id, update }), {
 			message: "Failed to update flag",
-			code: "UPDATE_FLAG_FAILED",
+			code: "UPDATE_FAILED",
 		});
 	}
 
@@ -152,7 +149,7 @@ export class AppKV {
 	async deleteFlag({ id }: { id: string }) {
 		return tryPromise(this.#deleteFlag({ id }), {
 			message: "Failed to delete flag",
-			code: "DELETE_FLAG_FAILED",
+			code: "DELETE_FAILED",
 		});
 	}
 
@@ -166,7 +163,7 @@ export class AppKV {
 	async putSegment({ id, rule }: SegmentInputSchema) {
 		return tryPromise(this.#putSegment({ id, rule }), {
 			message: "Failed to save segment",
-			code: "INVALID_SEGMENT_INPUT",
+			code: "PUT_FAILED",
 		});
 	}
 
@@ -174,7 +171,7 @@ export class AppKV {
 		const data = await this.#getData();
 
 		if (!Object.keys(data.segments).includes(id)) {
-			throw new AppKVError("Cannot delete non existing flag", "FLAG_NOT_FOUND");
+			throw new FlagglyError("Cannot delete non existing segment", "NOT_FOUND");
 		}
 
 		Reflect.deleteProperty(data.segments, id);
@@ -197,7 +194,7 @@ export class AppKV {
 	async deleteSegment({ id }: { id: string }) {
 		return tryPromise(this.#deleteSegment({ id }), {
 			message: "Failed to delete segment",
-			code: "SEGMENT_NOT_FOUND",
+			code: "DELETE_FAILED",
 		});
 	}
 }
