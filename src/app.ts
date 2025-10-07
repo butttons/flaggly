@@ -77,7 +77,7 @@ app.post(
 				"INVALID_BODY",
 				parsed.error.issues,
 			);
-			return c.json(error, error.getStatusCode());
+			return c.json(error, error.statusCode);
 		}
 
 		if (c.env.JWT_SECRET !== parsed.data.secret) {

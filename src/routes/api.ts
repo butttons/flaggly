@@ -13,7 +13,7 @@ api.use((c, next) =>
 	jwt({
 		secret: c.env.JWT_SECRET,
 		verification: {
-			iss: "flaggly.admin",
+			iss: "flaggly.user",
 		},
 	})(c, next),
 );

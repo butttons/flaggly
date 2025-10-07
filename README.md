@@ -3,6 +3,8 @@
 Flaggly is a lightweight, self-hosted feature flag service running on Cloudflare Workers. Deploy your own instance in minutes with boolean flags, payload flags, A/B testing, and progressive rollouts.
 
 
+> [!CAUTION]
+> This is still a WIP. 
 
 ## Deployment
 
@@ -68,6 +70,18 @@ pnpm run deploy
 ```sh
 npx wrangler secret put JWT_SECRET
 ```
+
+### Updating
+You can update your worker by just pushing the latest code to your github repository. Here is how you can fetch new updates:
+1. Set up git remote url
+```sh
+git remote set-url flaggly https://github.com/butttons/flaggly.git
+```
+2. Fetch data
+```sh
+git fetch flaggly
+```
+
 
 
 ## Configuration
