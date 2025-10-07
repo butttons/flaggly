@@ -36,7 +36,7 @@ const inputValidator = validator("json", (value, c) => {
 api.post(
 	"/eval",
 	inputValidator,
-	async (c) => {
+	async (c, next) => {
 		const params = c.req.valid("json");
 
 		const { success } = await c.env.FLAGGLY_RATE_LIMITER.limit({
@@ -47,6 +47,8 @@ api.post(
 			const error = new FlagglyError("Too many requests", "TOO_MANY_REQUESTS");
 			return c.json(error, error.statusCode);
 		}
+
+		await next();
 	},
 	async (c) => {
 		const params = c.req.valid("json");
@@ -81,7 +83,7 @@ api.post(
 api.post(
 	"/eval/:id",
 	inputValidator,
-	async (c) => {
+	async (c, next) => {
 		const params = c.req.valid("json");
 
 		const { success } = await c.env.FLAGGLY_RATE_LIMITER.limit({
@@ -92,6 +94,8 @@ api.post(
 			const error = new FlagglyError("Too many requests", "TOO_MANY_REQUESTS");
 			return c.json(error, error.statusCode);
 		}
+
+		await next();
 	},
 	validator("param", (value, c) => {
 		const parsed = paramSchema.safeParse(value);
