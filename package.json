@@ -35,7 +35,7 @@
 				"description": "This is JWT secret used to verify and sign the API requests. Generate a random string using `openssl rand -hex 32`."
 			},
 			"ORIGIN": {
-				"description": "Allowed origin for the service. A comma separated list for multiple origins."
+				"description": "Allowed origin for the service. Use a comma separated list for multiple origins."
 			}
 		}
 	}

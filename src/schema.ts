@@ -265,16 +265,19 @@ export type FlagEvaluationInput = Infer<typeof evaluateInputSchema>;
 const booleanFlagResult = object({
 	type: literal("boolean"),
 	result: boolean(),
+	isEval: boolean(),
 });
 
 const payloadFlagResult = object({
 	type: literal("payload"),
 	result: unknown(),
+	isEval: boolean(),
 });
 
 const variantFlagResult = object({
 	type: literal("variant"),
 	result: unknown(),
+	isEval: boolean(),
 });
 
 export const evaluateOutputSchema = discriminatedUnion("type", [

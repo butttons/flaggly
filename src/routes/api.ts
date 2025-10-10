@@ -59,9 +59,12 @@ api.post(
 		const data = await c.var.kv.getData();
 
 		const flagResult: Record<string, unknown> = {};
+		const analyticsPoints: AnalyticsEngineDataPoint[] = [];
+
+		const baseKey = c.var.kv.cacheKeys.all();
 
 		for (const [flagKey, flag] of Object.entries(data.flags)) {
-			flagResult[flagKey] = evaluateFlag({
+			const { result, isEval } = evaluateFlag({
 				flag,
 				segments: data.segments,
 				input: {
@@ -74,7 +77,42 @@ api.post(
 					},
 				},
 			});
+
+			flagResult[flagKey] = {
+				type: flag.type,
+				result: result,
+			};
+
+			const index = `${baseKey}:${flagKey}`;
+
+			analyticsPoints.push({
+				blobs: [
+					c.var.kv.app,
+					c.var.kv.env,
+					flagKey,
+					flag.type,
+					String(result),
+					params.id,
+				],
+				doubles: [
+					isEval ? 1 : 0,
+					flag.enabled ? 1 : 0,
+					flag.rollout,
+					flag.rules?.length ?? 0,
+					flag.segments?.length ?? 0,
+					flag.rollouts.length ?? 0,
+				],
+				indexes: [index],
+			});
 		}
+
+		const writePoints = async () => {
+			for (const point of analyticsPoints) {
+				c.env.FLAGGLY_ANALYTICS.writeDataPoint(point);
+			}
+		};
+
+		c.executionCtx.waitUntil(writePoints());
 
 		return c.json(flagResult, 200);
 	},
@@ -114,19 +152,22 @@ api.post(
 	async (c) => {
 		const input = c.req.valid("json");
 		const params = c.req.valid("param");
+		const flagKey = params.id;
 
 		const headers = Object.fromEntries(c.req.raw.headers.entries());
 		const geo = requestGeoSchema.parse(c.req.raw.cf);
 
 		const data = await c.var.kv.getData();
 
-		if (!(params.id in data.flags)) {
+		if (!(flagKey in data.flags)) {
 			const error = new FlagglyError("Flag not found", "NOT_FOUND");
 			return c.json(error, error.statusCode);
 		}
 
-		const flagResult = evaluateFlag({
-			flag: data.flags[params.id],
+		const flag = data.flags[flagKey];
+
+		const { result, isEval } = evaluateFlag({
+			flag,
 			segments: data.segments,
 			input: {
 				id: input.id,
@@ -139,6 +180,33 @@ api.post(
 			},
 		});
 
-		return c.json(flagResult, 200);
+		const index = `${c.var.kv.cacheKeys.all()}:${flagKey}`;
+		c.env.FLAGGLY_ANALYTICS.writeDataPoint({
+			blobs: [
+				c.var.kv.app,
+				c.var.kv.env,
+				flagKey,
+				flag.type,
+				String(result),
+				params.id,
+			],
+			doubles: [
+				isEval ? 1 : 0,
+				flag.enabled ? 1 : 0,
+				flag.rollout,
+				flag.rules?.length ?? 0,
+				flag.segments?.length ?? 0,
+				flag.rollouts.length ?? 0,
+			],
+			indexes: [index],
+		});
+
+		return c.json(
+			{
+				type: flag.type,
+				result,
+			},
+			200,
+		);
 	},
 );

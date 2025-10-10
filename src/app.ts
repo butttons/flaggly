@@ -2,7 +2,9 @@ import { cors } from "hono/cors";
 import { sign } from "hono/jwt";
 import { poweredBy } from "hono/powered-by";
 import { validator } from "hono/validator";
-import { minLength, object, string } from "zod/v4-mini";
+
+import { optional } from "zod";
+import { coerce, minLength, object, string } from "zod/v4-mini";
 
 import { FlagglyError } from "./error";
 import { createApp } from "./routes/_app";
@@ -65,12 +67,14 @@ app.route("/admin", admin);
 
 const secretSchema = object({
 	secret: string().check(minLength(32)),
+	expireAt: optional(coerce.date()),
 });
 
 app.post(
 	"/__generate",
 	validator("json", (data, c) => {
 		const parsed = secretSchema.safeParse(data);
+
 		if (!parsed.success) {
 			const error = new FlagglyError(
 				"Invalid secret",
@@ -81,16 +85,20 @@ app.post(
 		}
 
 		if (c.env.JWT_SECRET !== parsed.data.secret) {
-			return c.json(new FlagglyError("Invalid secret", "INVALID_BODY"), 400);
+			const error = new FlagglyError("Invalid secret", "INVALID_BODY");
+			return c.json(error, error.statusCode);
 		}
 
 		return parsed.data;
 	}),
 	async (c) => {
-		const secret = c.req.valid("json").secret;
+		const { secret, expireAt } = c.req.valid("json");
 		const SIX_MONTHS = 15552000;
 		const iat = Math.floor(Date.now() / 1000);
-		const exp = iat + SIX_MONTHS;
+
+		const exp = expireAt
+			? Math.floor(expireAt.getTime() / 1000)
+			: iat + SIX_MONTHS;
 
 		const baseClaims = {
 			iat,
@@ -113,10 +121,13 @@ app.post(
 			secret,
 		);
 
-		return c.json({
-			user,
-			admin,
-		});
+		return c.json(
+			{
+				user,
+				admin,
+			},
+			200,
+		);
 	},
 );
 

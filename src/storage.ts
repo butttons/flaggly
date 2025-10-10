@@ -14,8 +14,8 @@ type AppKVOptions = {
 
 export class AppKV {
 	private kv: KVNamespace;
-	private app: string;
-	private env: string;
+	public app: string;
+	public env: string;
 
 	constructor(options: AppKVOptions) {
 		this.kv = options.kv;

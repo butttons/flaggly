@@ -16,8 +16,8 @@
 	"kv_namespaces": [
 		{
 			"binding": "FLAGGLY_KV",
-			"id": "6a81166629b64f96b044aa69a55c6536",
-			"preview_id": "6a81166629b64f96b044aa69a55c6536"
+			"id": "",
+			"preview_id": ""
 		}
 	],
 	"ratelimits": [
@@ -28,6 +28,12 @@
 				"limit": 100,
 				"period": 60
 			}
+		}
+	],
+	"analytics_engine_datasets": [
+		{
+			"binding": "FLAGGLY_ANALYTICS",
+			"dataset": "flaggly"
 		}
 	]
 }

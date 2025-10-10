@@ -186,21 +186,25 @@ const getDefaultFlag = (flag: FeatureFlagInputSchema): FlagResultSchema => {
 			return {
 				type: "boolean",
 				result: false,
+				isEval: false,
 			};
 		case "payload":
 			return {
 				type: "payload",
 				result: null,
+				isEval: false,
 			};
 		case "variant":
 			return {
 				type: "variant",
 				result: flag.variations.at(0)?.payload ?? flag.variations.at(0)?.id,
+				isEval: false,
 			};
 		default:
 			return {
 				type: "boolean",
 				result: false,
+				isEval: false,
 			};
 	}
 };
@@ -289,12 +293,14 @@ export const evaluateFlag = (options: {
 			return {
 				type: "boolean",
 				result: true,
+				isEval: true,
 			};
 
 		case "payload":
 			return {
 				type: "payload",
 				result: flag.payload ?? null,
+				isEval: true,
 			};
 
 		case "variant": {
@@ -307,6 +313,7 @@ export const evaluateFlag = (options: {
 			return {
 				type: "variant",
 				result: variant?.payload ?? variant.id,
+				isEval: true,
 			};
 		}
 	}
