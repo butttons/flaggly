@@ -2,9 +2,7 @@
 
 Flaggly is a lightweight, self-hosted feature flag service running on Cloudflare Workers. Deploy your own instance in minutes with boolean flags, payload flags, A/B testing, and progressive rollouts.
 
-
-> [!CAUTION]
-> This is still a WIP. 
+Docs - [flaggly.dev](https://flaggly.dev)
 
 ## Deployment
 
@@ -421,3 +419,4 @@ J --> L
 K --> L
 Z --> L
 ```
+
