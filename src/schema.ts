@@ -61,7 +61,7 @@ export type AppSchema = Infer<typeof appSchema>;
 
 export const featureFlagVariationSchema = object({
 	id: string().check(minLength(1, { error: "Variation ID required" })),
-	label: string(),
+	label: optional(string()),
 	weight: number().check(minimum(0), maximum(100)),
 	payload: optional(unknown()),
 });
@@ -88,6 +88,7 @@ export const baseFeatureFlag = {
 	rules: _default(array(flagRule), []),
 	rollout: _default(number().check(minimum(0), maximum(100)), 100),
 	rollouts: _default(array(rolloutStep), []),
+	isTrackable: _default(boolean(), false),
 };
 
 export const inputFeatureFlag = {
@@ -171,6 +172,7 @@ export const updateableFeatureFlagSchema = object({
 			minLength(2, "Variant flags must have at least 2 variations"),
 		),
 	),
+	isTrackable: optional(boolean()),
 }).check(
 	refine(
 		(x) =>

@@ -85,34 +85,39 @@ api.post(
 
 			const index = `${baseKey}:${flagKey}`;
 
-			analyticsPoints.push({
-				blobs: [
-					c.var.kv.app,
-					c.var.kv.env,
-					flagKey,
-					flag.type,
-					String(result),
-					params.id,
-				],
-				doubles: [
-					isEval ? 1 : 0,
-					flag.enabled ? 1 : 0,
-					flag.rollout,
-					flag.rules?.length ?? 0,
-					flag.segments?.length ?? 0,
-					flag.rollouts.length ?? 0,
-				],
-				indexes: [index],
-			});
+			if (flag.isTrackable) {
+				analyticsPoints.push({
+					blobs: [
+						c.var.kv.app,
+						c.var.kv.env,
+						flagKey,
+						flag.type,
+						String(result),
+						params.id,
+					],
+					doubles: [
+						isEval ? 1 : 0,
+						flag.enabled ? 1 : 0,
+						flag.rollout,
+						flag.rules?.length ?? 0,
+						flag.segments?.length ?? 0,
+						flag.rollouts.length ?? 0,
+					],
+					indexes: [index],
+				});
+			}
 		}
 
 		const writePoints = async () => {
-			for (const point of analyticsPoints) {
+			const validPoints = analyticsPoints.slice(0, 24);
+			for (const point of validPoints) {
 				c.env.FLAGGLY_ANALYTICS.writeDataPoint(point);
 			}
 		};
 
-		c.executionCtx.waitUntil(writePoints());
+		if (analyticsPoints.length > 0) {
+			c.executionCtx.waitUntil(writePoints());
+		}
 
 		return c.json(flagResult, 200);
 	},
@@ -180,26 +185,28 @@ api.post(
 			},
 		});
 
-		const index = `${c.var.kv.cacheKeys.all()}:${flagKey}`;
-		c.env.FLAGGLY_ANALYTICS.writeDataPoint({
-			blobs: [
-				c.var.kv.app,
-				c.var.kv.env,
-				flagKey,
-				flag.type,
-				String(result),
-				params.id,
-			],
-			doubles: [
-				isEval ? 1 : 0,
-				flag.enabled ? 1 : 0,
-				flag.rollout,
-				flag.rules?.length ?? 0,
-				flag.segments?.length ?? 0,
-				flag.rollouts.length ?? 0,
-			],
-			indexes: [index],
-		});
+		if (flag.isTrackable) {
+			const index = `${c.var.kv.cacheKeys.all()}:${flagKey}`;
+			c.env.FLAGGLY_ANALYTICS.writeDataPoint({
+				blobs: [
+					c.var.kv.app,
+					c.var.kv.env,
+					flagKey,
+					flag.type,
+					String(result),
+					params.id,
+				],
+				doubles: [
+					isEval ? 1 : 0,
+					flag.enabled ? 1 : 0,
+					flag.rollout,
+					flag.rules?.length ?? 0,
+					flag.segments?.length ?? 0,
+					flag.rollouts.length ?? 0,
+				],
+				indexes: [index],
+			});
+		}
 
 		return c.json(
 			{

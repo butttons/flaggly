@@ -16,7 +16,7 @@ The worker uses the following service bindings to function.
 
 
 ### Quick Deploy
-The quickest way to get an instance up and running is by using the automatic GitHub integration with Cloudflare Workers. This is the recommended way.
+The quickest way to get a worker up and running is by using the automatic GitHub integration with Cloudflare Workers. This is the recommended way.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/butttons/flaggly)
 
@@ -371,6 +371,7 @@ type FeatureFlag = {
 	}[];
 	label?: string;
 	description?: string;
+  isTrackable?: boolean
 } & (
 	| {
 			type: "boolean";
