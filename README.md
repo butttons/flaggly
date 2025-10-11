@@ -148,7 +148,7 @@ Response
     "dark-mode": { ... }
   },
   "segments": {
-    "beta-users": "user.email.endsWith('@company.com')",
+    "beta-users": "'@company.com' in user.email",
     "premium": "user.tier == 'premium'"
   }
 }
@@ -238,7 +238,7 @@ curl -X DELETE https://flaggly.[ACCOUNT].workers.dev/admin/segments/[SEGMENT_ID]
 ```
 
 ## Usage
-Once you have your flags ready for use, you can install the client side SDK to evaluate them.
+Once you have your flags ready for use, you can install the client side SDK to evaluate them. This guide assumes this is being set up in the front-end. Server side evaluations are handled a little differently when working 
 ```
 pnpm i @flaggly/sdk
 ```
@@ -271,7 +271,7 @@ For react:
 ```ts
 // src/lib/flaggly.ts
 import { FlagValueResult, FlagglyClient } from '@flaggly/sdk';
-import { useStore } from '@nanostores/react';
+import { useSyncExternalStore } from 'react';
 
 type Flags = {
   'new-checkout': { type: 'boolean' };
@@ -282,14 +282,20 @@ type Flags = {
 export const flaggly = new FlagglyClient<Flags>({
   url: 'BASE_URL',
   apiKey: 'USER_JWT',
+  lazy: true,
+  bootstrap: {
+    'new-checkout': false,
+    'button-color': '#00FF00'
+  }
 });
 
-export const useFlag = <K extends keyof Flags>(key: K): FlagValueResult<Flags[K]> => {
-  const data = useStore(flaggly.getStore(), {
-    keys: [key],
-  });
-  return data?.[key]?.result ?? false;
+export const useFlags = () => useSyncExternalStore(flaggly.store.subscribe, flaggly.store.get, flaggly.store.get);
+
+export const useFlag = <K extends keyof Flags>(key: K): FlagValue<Flags[K]> => {
+  const data = useFlags();
+  return data?.[key].result as FlagValue<Flags[K]>;
 };
+
 
 // Component usage
 const isNewCheckout = useFlag('new-checkout');
@@ -302,3 +308,115 @@ flaggly.identify(userId: string, user: unknown);
 This will re-evaluate the flags again and reset the state.
 
 You can disable the flag evaluation on load by passing `lazy: false` to the constructor.
+
+### Server side setup 
+You can use the same SDK in backend code too, but if you're using workers you must [use a service binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/http/) to first attach your flaggly worker to your worker and then interact with it.
+
+In your worker's wrangler.jsonc:
+```json
+ // ...
+ "services": [
+    {
+      "binding": "FLAGGLY_SERVICE",
+      "service": "flaggly"
+    }
+  ]
+  //...
+```
+
+
+Now you can pass in the fetch from the worker, in the SDK:
+```ts
+// src/lib/flaggly.ts
+import { FlagglyClient } from '@flaggly/sdk';
+
+type Flags = {
+  // 
+};
+
+export const createFlaggly = (env: Env) => new FlagglyClient<Flags>({
+  url: 'BASE_URL',
+  apiKey: 'USER_JWT',
+  lazy: true,
+  workerFetch: (url, init) => env.FLAGGLY_SERVICE.fetch(url, init) 
+});
+```
+
+```ts
+// src/index.ts
+const flaggly = createFlaggly(env);
+```
+
+
+### Technical details
+All flags are are stored in a single KV entry per app/environment in this shape:
+
+```ts
+
+type AppData = {
+	flags: Record<string, FeatureFlag>;
+	segments: Record<string, string>;
+};
+
+type FeatureFlag = {
+	id: string;
+	segments: string[];
+	enabled: boolean;
+	rules: string[];
+	rollout: number;
+	rollouts: {
+		start: string;
+		percentage?: number;
+		segment?: string;
+	}[];
+	label?: string;
+	description?: string;
+} & (
+	| {
+			type: "boolean";
+	  }
+	| {
+			type: "payload";
+			payload: unknown;
+	  }
+	| {
+			type: "variant";
+			variations: {
+				id: string;
+				label: string;
+				weight: number;
+				payload?: unknown;
+			}[];
+	  }
+);
+
+```
+
+How flag evaluations work:
+```mermaid
+flowchart TD
+
+A["Start Evaluation"] --> B["Is flag enabled?"]
+B -->|"No"| Z["Return default result (isEval = false)"]
+B -->|"Yes"| C["Do all rules pass?"]
+C -->|"No"| Z
+C -->|"Yes"| D{"Has rollout steps?"}
+
+D -->|"Yes"| E["Evaluate rollout steps (time, segment, percentage)"]
+E -->|"No match"| Z
+E -->|"Match"| G["Flag passes rollout"]
+
+D -->|"No"| F["Check global rollout percentage"]
+F -->|"Not included"| Z
+F -->|"Included"| G
+
+G --> H{"Flag type"}
+H -->|"Boolean"| I["Return true (isEval = true)"]
+H -->|"Payload"| J["Return payload (isEval = true)"]
+H -->|"Variant"| K["Choose variant deterministically → Return variant (isEval = true)"]
+
+I --> L["End"]
+J --> L
+K --> L
+Z --> L
+```
