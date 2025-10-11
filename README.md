@@ -85,7 +85,7 @@ git fetch flaggly
 ## Configuration
 You can interact with your instance once it's deployed. Before proceeding, you will need the following:
 1. URL of the worker. You can find this in the `Settings` tab of your worker, under `Domains & Routes`. Here you can also add a custom domain and disable the default worker domain entirely.
-2. The JWT keys for the API. You can generate the keys by using the `/__generate` endpoint. By default, it will generate a token with a 6 month expiry. You can create your own longer one at [jwt.io](https://www.jwt.io/)
+2. The JWT keys for the API. You can generate the keys by using the `/__generate` endpoint. By default, it will generate a token with a 6 month expiry. You can create your own longer one at [jwt.io](https://www.jwt.io/) or pass in a valid date string as `expiresAt` field to set the expiry time of the tokens. 
 
 ```sh
 curl -X POST https://flaggly.[ACCOUNT].workers.dev/__generate \
@@ -240,7 +240,7 @@ Once you have your flags ready for use, you can install the client side SDK to e
 ```
 pnpm i @flaggly/sdk
 ```
-The SDK uses [nanostores](https://github.com/nanostores/nanostores) to manage the flag state. 
+The SDK uses [nanostores](https://github.com/nanostores/nanostores) to manage the flags' state. 
 
 ### Setup
 Setup the client:
