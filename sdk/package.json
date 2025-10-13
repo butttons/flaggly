@@ -1,6 +1,6 @@
 {
 	"name": "@flaggly/sdk",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Client SDK for Flaggly",
 	"main": "dist/index.js",
 	"module": "dist/index.mjs",

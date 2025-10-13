@@ -45,6 +45,7 @@ function createMockBooleanFlag(
 		segments: [],
 		rollout: 100,
 		rollouts: [],
+		isTrackable: false,
 		...overrides,
 	};
 }
@@ -64,6 +65,8 @@ function createMockPayloadFlag(
 		segments: [],
 		rollout: 100,
 		rollouts: [],
+
+		isTrackable: false,
 		...overrides,
 	};
 }
@@ -90,6 +93,8 @@ function createMockVariantFlag(
 		segments: [],
 		rollout: 100,
 		rollouts: [],
+
+		isTrackable: false,
 		...overrides,
 	};
 }
@@ -140,7 +145,11 @@ describe("evaluateRolloutStep", () => {
 describe("evaluateRolloutSteps", () => {
 	test("short-circuits on first matching step with complex segments", () => {
 		const rollouts = [
-			{ start: "2024-01-01T00:00:00.000Z", segment: "freeUsers", percentage: 100 }, // Matches
+			{
+				start: "2024-01-01T00:00:00.000Z",
+				segment: "freeUsers",
+				percentage: 100,
+			}, // Matches
 			{
 				start: "2024-01-01T00:00:00.000Z",
 				segment: "premiumUsers",
@@ -176,7 +185,7 @@ describe("evaluateFlag", () => {
 
 			const result = evaluateFlag({ input, flag, segments: {} });
 
-			expect(result).toEqual({ type: "boolean", result: true });
+			expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 		});
 	});
 
@@ -201,7 +210,7 @@ describe("evaluateFlag", () => {
 			});
 
 			// Should pass because user matches premiumUsers (OR logic)
-			expect(result).toEqual({ type: "boolean", result: true });
+			expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 		});
 
 		test("returns false when NO segments match", () => {
@@ -224,7 +233,7 @@ describe("evaluateFlag", () => {
 			});
 
 			// Should fail because user matches NO segments
-			expect(result).toEqual({ type: "boolean", result: false });
+			expect(result).toEqual({ type: "boolean", result: false, isEval: false });
 		});
 
 		test("passes when user matches second segment but not first", () => {
@@ -247,7 +256,7 @@ describe("evaluateFlag", () => {
 			});
 
 			// Should pass because user matches betaUsers (OR logic)
-			expect(result).toEqual({ type: "boolean", result: true });
+			expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 		});
 	});
 
@@ -263,7 +272,7 @@ describe("evaluateFlag", () => {
 
 			const result = evaluateFlag({ input, flag, segments: {} });
 
-			expect(result).toEqual({ type: "payload", result: complexPayload });
+			expect(result).toEqual({ type: "payload", result: complexPayload, isEval: true });
 		});
 	});
 
@@ -307,7 +316,7 @@ describe("evaluateFlag", () => {
 				},
 			});
 
-			expect(result).toEqual({ type: "boolean", result: true });
+			expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 		});
 
 		test("evaluates multiple rollout steps and matches on second step", () => {
@@ -329,7 +338,7 @@ describe("evaluateFlag", () => {
 			const result = evaluateFlag({ input, flag, segments: {} });
 
 			// Matches second rollout step (100%) - deterministic based on user hash
-			expect(result).toEqual({ type: "boolean", result: true });
+			expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 		});
 
 		test("returns payload when rollout step matches", () => {
@@ -360,7 +369,7 @@ describe("evaluateFlag", () => {
 				},
 			});
 
-			expect(result).toEqual({ type: "payload", result: complexPayload });
+			expect(result).toEqual({ type: "payload", result: complexPayload, isEval: true });
 		});
 
 		test("returns null payload when rollout step fails", () => {
@@ -391,7 +400,7 @@ describe("evaluateFlag", () => {
 				},
 			});
 
-			expect(result).toEqual({ type: "payload", result: null });
+			expect(result).toEqual({ type: "payload", result: null, isEval: false });
 		});
 
 		test("returns variant payload when rollout step matches", () => {
@@ -449,7 +458,7 @@ describe("evaluateFlag", () => {
 			});
 
 			// Should return first variant's payload as default
-			expect(result).toEqual({ type: "variant", result: { variant: "A" } });
+			expect(result).toEqual({ type: "variant", result: { variant: "A" }, isEval: false });
 		});
 	});
 });

@@ -55,6 +55,7 @@ function createMockBooleanFlag(
 		segments: [],
 		rollout: 100,
 		rollouts: [],
+		isTrackable: false,
 		...overrides,
 	};
 }
@@ -81,7 +82,7 @@ describe("AppKV", () => {
 			const [data, error] = await appKV.putFlag({ flag });
 
 			expect(error).toBeTruthy();
-			expect(error?.code).toBe("INVALID_FLAG_INPUT");
+			expect(error?.code).toBe("INVALID_BODY");
 			expect(data).toBeNull();
 		});
 
@@ -108,7 +109,7 @@ describe("AppKV", () => {
 			});
 
 			expect(error).toBeTruthy();
-			expect(error?.code).toBe("INVALID_FLAG_INPUT");
+			expect(error?.code).toBe("INVALID_BODY");
 			expect(data).toBeNull();
 		});
 	});
@@ -200,8 +201,8 @@ describe("AppKV", () => {
 			const data1 = await appKV1.getData();
 			const data2 = await appKV2.getData();
 
-			expect(data1?.segments["users"]).toBe("user.id > 100");
-			expect(data2?.segments["users"]).toBe("user.id < 50");
+			expect(data1?.segments.users).toBe("user.id > 100");
+			expect(data2?.segments.users).toBe("user.id < 50");
 		});
 	});
 
@@ -210,7 +211,7 @@ describe("AppKV", () => {
 			const [data, error] = await appKV.deleteFlag({ id: "non-existent" });
 
 			expect(error).toBeTruthy();
-			expect(error?.code).toBe("FLAG_NOT_FOUND");
+			expect(error?.code).toBe("NOT_FOUND");
 			expect(data).toBeNull();
 		});
 	});
@@ -223,7 +224,169 @@ describe("AppKV", () => {
 			});
 
 			expect(error).toBeTruthy();
-			expect(error?.code).toBe("FLAG_NOT_FOUND");
+			expect(error?.code).toBe("NOT_FOUND");
+			expect(data).toBeNull();
+		});
+	});
+
+	describe("syncEnv", () => {
+		test("syncs flags and segments with safe defaults (overwrite: false)", async () => {
+			const sourceAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "source",
+			});
+
+			await sourceAppKV.putSegment({
+				id: "beta-users",
+				rule: "user.beta == true",
+			});
+			const flag = createMockBooleanFlag({
+				id: "feature-a",
+				segments: ["beta-users"],
+				enabled: true,
+			});
+			await sourceAppKV.putFlag({ flag });
+
+			const [data, error] = await sourceAppKV.syncEnv({
+				sourceEnv: "source",
+				targetEnv: "target",
+				overwrite: false,
+			});
+
+			expect(error).toBeNull();
+			expect(data?.flags["feature-a"]?.enabled).toBe(false);
+			expect(data?.segments["beta-users"]).toBe("user.beta == true");
+		});
+
+		test("preserves enabled state when overwrite is true", async () => {
+			const sourceAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "source",
+			});
+
+			const enabledFlag = createMockBooleanFlag({
+				id: "enabled-feature",
+				enabled: true,
+			});
+			await sourceAppKV.putFlag({ flag: enabledFlag });
+
+			const [data] = await sourceAppKV.syncEnv({
+				sourceEnv: "source",
+				targetEnv: "target",
+				overwrite: true,
+			});
+
+			expect(data?.flags["enabled-feature"]?.enabled).toBe(true);
+		});
+
+		test("merges with existing target data without removing it", async () => {
+			const sourceAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "source",
+			});
+			const sourceFlag = createMockBooleanFlag({ id: "source-flag" });
+			await sourceAppKV.putFlag({ flag: sourceFlag });
+
+			const targetAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "target",
+			});
+			const targetFlag = createMockBooleanFlag({ id: "target-flag" });
+			await targetAppKV.putFlag({ flag: targetFlag });
+
+			const [data] = await sourceAppKV.syncEnv({
+				sourceEnv: "source",
+				targetEnv: "target",
+				overwrite: false,
+			});
+
+			expect(data?.flags["source-flag"]).toBeDefined();
+			expect(data?.flags["target-flag"]).toBeDefined();
+		});
+	});
+
+	describe("syncFlag", () => {
+		test("syncs single flag with its segments (overwrite: false)", async () => {
+			const sourceAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "source",
+			});
+
+			// Create two segments, but flag only uses one
+			await sourceAppKV.putSegment({
+				id: "beta-users",
+				rule: "user.beta == true",
+			});
+			await sourceAppKV.putSegment({
+				id: "premium-users",
+				rule: "user.premium == true",
+			});
+
+			const flag = createMockBooleanFlag({
+				id: "feature-a",
+				segments: ["beta-users"], // Only uses beta-users
+				enabled: true,
+			});
+			await sourceAppKV.putFlag({ flag });
+
+			const [data, error] = await sourceAppKV.syncFlag({
+				id: "feature-a",
+				sourceEnv: "source",
+				targetEnv: "target",
+				overwrite: false,
+			});
+
+			expect(error).toBeNull();
+			expect(data?.flags["feature-a"]?.enabled).toBe(false);
+			// Only beta-users segment should be copied (not premium-users)
+			expect(data?.segments["beta-users"]).toBe("user.beta == true");
+			expect(data?.segments["premium-users"]).toBeUndefined();
+		});
+
+		test("preserves enabled state when overwrite is true", async () => {
+			const sourceAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "source",
+			});
+
+			const enabledFlag = createMockBooleanFlag({
+				id: "enabled-feature",
+				enabled: true,
+			});
+			await sourceAppKV.putFlag({ flag: enabledFlag });
+
+			const [data] = await sourceAppKV.syncFlag({
+				id: "enabled-feature",
+				sourceEnv: "source",
+				targetEnv: "target",
+				overwrite: true,
+			});
+
+			expect(data?.flags["enabled-feature"]?.enabled).toBe(true);
+		});
+
+		test("returns error when syncing non-existent flag", async () => {
+			const sourceAppKV = new AppKV({
+				kv: mockKV,
+				app: "test-app",
+				env: "source",
+			});
+
+			const [data, error] = await sourceAppKV.syncFlag({
+				id: "non-existent",
+				sourceEnv: "source",
+				targetEnv: "target",
+				overwrite: false,
+			});
+
+			expect(error).toBeTruthy();
+			expect(error?.code).toBe("NOT_FOUND");
 			expect(data).toBeNull();
 		});
 	});

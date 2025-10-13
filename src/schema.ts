@@ -4,7 +4,6 @@ import {
 	enum as _enum,
 	array,
 	boolean,
-	coerce,
 	discriminatedUnion,
 	type infer as Infer,
 	literal,
@@ -297,3 +296,11 @@ export const evaluateBatchOutputSchema = record(
 export const paramSchema = object({
 	id: string(),
 });
+
+export const syncInputSchema = object({
+	sourceEnv: optional(string()),
+	targetEnv: string(),
+	overwrite: _default(boolean(), false),
+});
+
+export type SyncInput = Infer<typeof syncInputSchema>;

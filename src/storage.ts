@@ -3,6 +3,7 @@ import type {
 	AppData,
 	FeatureFlagInputSchema,
 	SegmentInputSchema,
+	SyncInput,
 	UpdatableFeatureFlagSchema,
 } from "./schema";
 
@@ -24,11 +25,11 @@ export class AppKV {
 	}
 
 	cacheKeys = {
-		all: () => `v1:${this.app}:${this.env}`,
+		all: (env?: string) => `v1:${this.app}:${env ?? this.env}`,
 	};
 
-	async #getData() {
-		const key = this.cacheKeys.all();
+	async #getData(env?: string) {
+		const key = this.cacheKeys.all(env);
 		const data = await this.kv.get<AppData>(key, "json");
 
 		if (data === null || !data) {
@@ -41,8 +42,8 @@ export class AppKV {
 		return data;
 	}
 
-	async #saveData(input: AppData) {
-		await this.kv.put(this.cacheKeys.all(), JSON.stringify(input), {
+	async #saveData(input: AppData, env?: string) {
+		await this.kv.put(this.cacheKeys.all(env), JSON.stringify(input), {
 			metadata: { updatedAt: new Date().toISOString() },
 		});
 	}
@@ -137,13 +138,9 @@ export class AppKV {
 
 		Reflect.deleteProperty(data.flags, id);
 
-		const newData = {
-			flags: data.flags,
-			segments: data.segments,
-		};
-		await this.#saveData(newData);
+		await this.#saveData(data);
 
-		return newData;
+		return data;
 	}
 
 	async deleteFlag({ id }: { id: string }) {
@@ -195,6 +192,70 @@ export class AppKV {
 		return tryPromise(this.#deleteSegment({ id }), {
 			message: "Failed to delete segment",
 			code: "DELETE_FAILED",
+		});
+	}
+
+	async #syncEnv(input: SyncInput) {
+		const sourceEnv = await this.#getData(input.sourceEnv ?? this.env);
+		const targetEnv = await this.#getData(input.targetEnv);
+
+		const sourceFlags = Object.entries(sourceEnv.flags);
+		const sourceSegments = Object.entries(sourceEnv.segments);
+
+		for (const [flagKey, flag] of sourceFlags) {
+			if (!input.overwrite) {
+				flag.enabled = false;
+			}
+			targetEnv.flags[flagKey] = flag;
+		}
+
+		for (const [segmentKey, segment] of sourceSegments) {
+			targetEnv.segments[segmentKey] = segment;
+		}
+
+		await this.#saveData(targetEnv, input.targetEnv);
+
+		return targetEnv;
+	}
+
+	async syncEnv(input: SyncInput) {
+		return tryPromise(this.#syncEnv(input), {
+			message: "Failed to sync flags segment",
+			code: "UPDATE_FAILED",
+		});
+	}
+
+	async #syncFlag(input: SyncInput & { id: string }) {
+		const sourceEnv = await this.#getData(input.sourceEnv ?? this.env);
+		const targetEnv = await this.#getData(input.targetEnv);
+
+		const flagKey = input.id;
+
+		this.#checkFlag({ id: flagKey, data: sourceEnv });
+
+		const flag = sourceEnv.flags[flagKey];
+
+		if (!input.overwrite) {
+			flag.enabled = false;
+		}
+
+		targetEnv.flags[flagKey] = flag;
+
+		const flagSegments = flag?.segments ?? [];
+
+		for (const sourceSegment of flagSegments) {
+			targetEnv.segments[sourceSegment] = sourceEnv.segments[sourceSegment];
+		}
+
+		await this.#saveData(targetEnv, input.targetEnv);
+
+		return targetEnv;
+	}
+
+	async syncFlag(input: SyncInput & { id: string }) {
+		return tryPromise(this.#syncFlag(input), {
+			message: "Failed to sync flags segment",
+			code: "UPDATE_FAILED",
 		});
 	}
 }

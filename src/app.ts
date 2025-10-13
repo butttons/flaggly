@@ -3,8 +3,7 @@ import { sign } from "hono/jwt";
 import { poweredBy } from "hono/powered-by";
 import { validator } from "hono/validator";
 
-import { optional } from "zod";
-import { coerce, minLength, object, string } from "zod/v4-mini";
+import { coerce, minLength, object, optional, string } from "zod/v4-mini";
 
 import { FlagglyError } from "./error";
 import { createApp } from "./routes/_app";

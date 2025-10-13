@@ -5,6 +5,7 @@ import { FlagglyError } from "../error";
 import {
 	inputFeatureFlagSchema,
 	segmentInputSchema,
+	syncInputSchema,
 	updateableFeatureFlagSchema,
 } from "../schema";
 import { createApp } from "./_app";
@@ -149,3 +150,60 @@ admin.delete("/segments/:id", paramValidator, async (c) => {
 
 	return error ? c.json(error, error.statusCode) : c.json(data, 200);
 });
+
+admin.post(
+	"/sync",
+	validator("json", (value, c) => {
+		const parsed = syncInputSchema.safeParse(value);
+
+		if (!parsed.success) {
+			const error = new FlagglyError(
+				"Invalid segment input",
+				"INVALID_BODY",
+				parsed.error.issues,
+			);
+			return c.json(error, error.statusCode);
+		}
+
+		return parsed.data;
+	}),
+
+	async (c) => {
+		const params = c.req.valid("json");
+
+		const [data, error] = await c.var.kv.syncEnv(params);
+
+		return error ? c.json(error, error.statusCode) : c.json(data, 200);
+	},
+);
+
+admin.post(
+	"/sync/:id",
+	paramValidator,
+	validator("json", (value, c) => {
+		const parsed = syncInputSchema.safeParse(value);
+
+		if (!parsed.success) {
+			const error = new FlagglyError(
+				"Invalid segment input",
+				"INVALID_BODY",
+				parsed.error.issues,
+			);
+			return c.json(error, error.statusCode);
+		}
+
+		return parsed.data;
+	}),
+
+	async (c) => {
+		const params = c.req.valid("json");
+		const { id } = c.req.valid("param");
+
+		const [data, error] = await c.var.kv.syncFlag({
+			id,
+			...params,
+		});
+
+		return error ? c.json(error, error.statusCode) : c.json(data, 200);
+	},
+);

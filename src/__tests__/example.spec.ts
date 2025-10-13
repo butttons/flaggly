@@ -5,7 +5,9 @@ import type { FlagEvaluationInput } from "../schema";
 /**
  * Helper to create properly structured evaluation input
  */
-function createInput(overrides: Partial<FlagEvaluationInput> = {}): FlagEvaluationInput {
+function createInput(
+	overrides: Partial<FlagEvaluationInput> = {},
+): FlagEvaluationInput {
 	return {
 		id: "user-123",
 		user: { id: "user-123" },
@@ -36,6 +38,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100, // 100% of users
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const input = createInput({
@@ -44,7 +47,7 @@ describe("Feature Flag Examples", () => {
 
 		const result = evaluateFlag({ input, flag, segments: {} });
 
-		expect(result).toEqual({ type: "boolean", result: true });
+		expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 	});
 
 	test("Example 2: Boolean flag with rules - Target premium users only", () => {
@@ -58,6 +61,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const premiumUser = createInput({
@@ -81,8 +85,8 @@ describe("Feature Flag Examples", () => {
 			segments: {},
 		});
 
-		expect(premiumResult).toEqual({ type: "boolean", result: true });
-		expect(freeResult).toEqual({ type: "boolean", result: false });
+		expect(premiumResult).toEqual({ type: "boolean", result: true, isEval: true });
+		expect(freeResult).toEqual({ type: "boolean", result: false, isEval: false });
 	});
 
 	test("Example 3: Boolean flag with segments - Geo-targeting US users", () => {
@@ -96,6 +100,7 @@ describe("Feature Flag Examples", () => {
 			segments: ["usUsers"],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const usUser = createInput({
@@ -109,11 +114,19 @@ describe("Feature Flag Examples", () => {
 			geo: { country: "DE", isEUCountry: true },
 		});
 
-		const usResult = evaluateFlag({ input: usUser, flag, segments: { usUsers: 'geo.country == "US"' } });
-		const euResult = evaluateFlag({ input: euUser, flag, segments: { usUsers: 'geo.country == "US"' } });
+		const usResult = evaluateFlag({
+			input: usUser,
+			flag,
+			segments: { usUsers: 'geo.country == "US"' },
+		});
+		const euResult = evaluateFlag({
+			input: euUser,
+			flag,
+			segments: { usUsers: 'geo.country == "US"' },
+		});
 
-		expect(usResult).toEqual({ type: "boolean", result: true });
-		expect(euResult).toEqual({ type: "boolean", result: false });
+		expect(usResult).toEqual({ type: "boolean", result: true, isEval: true });
+		expect(euResult).toEqual({ type: "boolean", result: false, isEval: false });
 	});
 
 	test("Example 4: Boolean flag with percentage rollout - 50% gradual rollout", () => {
@@ -127,6 +140,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 50, // 50% of users (deterministic based on userId + flagKey hash)
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		// User that falls in the 50% bucket (hash = 34, which is <= 50)
@@ -142,16 +156,15 @@ describe("Feature Flag Examples", () => {
 		});
 
 		// Results are deterministic - same user + flag always gets same result
-		expect(
-			evaluateFlag({ input: userInRollout, flag, segments: {} }),
-		).toEqual({
+		expect(evaluateFlag({ input: userInRollout, flag, segments: {} })).toEqual({
 			type: "boolean",
 			result: true,
+			isEval: true,
 		});
 
 		expect(
 			evaluateFlag({ input: userNotInRollout, flag, segments: {} }),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 	});
 
 	test("Example 5: Combined rules and segments - Enterprise feature", () => {
@@ -167,6 +180,7 @@ describe("Feature Flag Examples", () => {
 			segments: ["allowedRegions"],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const qualifiedUser = createInput({
@@ -208,13 +222,13 @@ describe("Feature Flag Examples", () => {
 		});
 
 		// Qualified user passes all checks
-		expect(qualifiedResult).toEqual({ type: "boolean", result: true });
+		expect(qualifiedResult).toEqual({ type: "boolean", result: true, isEval: true });
 
 		// Wrong plan fails
-		expect(wrongPlanResult).toEqual({ type: "boolean", result: false });
+		expect(wrongPlanResult).toEqual({ type: "boolean", result: false, isEval: false });
 
 		// Wrong region fails
-		expect(wrongRegionResult).toEqual({ type: "boolean", result: false });
+		expect(wrongRegionResult).toEqual({ type: "boolean", result: false, isEval: false });
 	});
 
 	test("Example 6: Payload flag - Feature configuration object", () => {
@@ -234,6 +248,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const input = createInput();
@@ -248,6 +263,7 @@ describe("Feature Flag Examples", () => {
 				retries: 3,
 				features: ["compression", "caching"],
 			},
+			isEval: true,
 		});
 	});
 
@@ -276,6 +292,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const input = createInput({
@@ -324,6 +341,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const input = createInput({
@@ -362,6 +380,7 @@ describe("Feature Flag Examples", () => {
 					percentage: 100, // Then expand to everyone
 				},
 			],
+			isTrackable: false,
 		};
 
 		// User that falls in the 10% bucket (hash = 3, which is <= 10)
@@ -384,7 +403,7 @@ describe("Feature Flag Examples", () => {
 				segments: {},
 				now: new Date("2024-12-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 
 		// Jan 15, 2025: 10% rollout active - only users in 10% bucket
 		expect(
@@ -394,7 +413,7 @@ describe("Feature Flag Examples", () => {
 				segments: {},
 				now: new Date("2025-01-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -403,7 +422,7 @@ describe("Feature Flag Examples", () => {
 				segments: {},
 				now: new Date("2025-01-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 
 		// Feb 15, 2025: 100% rollout active - everyone gets access
 		expect(
@@ -413,7 +432,7 @@ describe("Feature Flag Examples", () => {
 				segments: {},
 				now: new Date("2025-02-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -422,7 +441,7 @@ describe("Feature Flag Examples", () => {
 				segments: {},
 				now: new Date("2025-02-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 	});
 
 	test("Example 10: Disabled flag - Returns false when disabled", () => {
@@ -436,6 +455,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const input = createInput({
@@ -446,7 +466,7 @@ describe("Feature Flag Examples", () => {
 		const result = evaluateFlag({ input, flag, segments: {} });
 
 		// Disabled flags always return false
-		expect(result).toEqual({ type: "boolean", result: false });
+		expect(result).toEqual({ type: "boolean", result: false, isEval: false });
 	});
 
 	test("Example 11: Custom userKey - Using email instead of user.id", () => {
@@ -460,6 +480,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const input = createInput({
@@ -477,7 +498,7 @@ describe("Feature Flag Examples", () => {
 			segments: {},
 		});
 
-		expect(result).toEqual({ type: "boolean", result: true });
+		expect(result).toEqual({ type: "boolean", result: true, isEval: true });
 	});
 
 	test("Example 12: Boolean flag with users - Target internal team members", () => {
@@ -491,6 +512,7 @@ describe("Feature Flag Examples", () => {
 			segments: ["teamMember"],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const companyUser = createInput({
@@ -520,8 +542,8 @@ describe("Feature Flag Examples", () => {
 			},
 		});
 
-		expect(companyResult).toEqual({ type: "boolean", result: true });
-		expect(customerResult).toEqual({ type: "boolean", result: false });
+		expect(companyResult).toEqual({ type: "boolean", result: true, isEval: true });
+		expect(customerResult).toEqual({ type: "boolean", result: false, isEval: false });
 	});
 
 	test("Example 13: Boolean flag with users - Target premium members whose subscription expires in 30 days with dates", () => {
@@ -535,6 +557,7 @@ describe("Feature Flag Examples", () => {
 			segments: [],
 			rollout: 100,
 			rollouts: [],
+			isTrackable: false,
 		};
 
 		const user = createInput({
@@ -554,7 +577,7 @@ describe("Feature Flag Examples", () => {
 			now: new Date("2025-10-15T00:00:00.000Z").getTime(),
 		});
 
-		expect(companyResult).toEqual({ type: "boolean", result: true });
+		expect(companyResult).toEqual({ type: "boolean", result: true, isEval: true });
 	});
 
 	test("Example 14: Time-gated progressive rollout - Scheduled feature release", () => {
@@ -582,6 +605,7 @@ describe("Feature Flag Examples", () => {
 					segment: "allUser",
 				},
 			],
+			isTrackable: false,
 		};
 
 		const internalUser = createInput({
@@ -625,7 +649,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2024-12-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 
 		// Jan 15, 2025: Phase 1 - Only internal team gets access
 		expect(
@@ -635,7 +659,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-01-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -644,7 +668,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-01-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 
 		expect(
 			evaluateFlag({
@@ -653,7 +677,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-01-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 
 		// Feb 15, 2025: Phase 2 - Internal team + Premium users get access
 		expect(
@@ -663,7 +687,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-02-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -672,7 +696,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-02-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -681,7 +705,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-02-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: false });
+		).toEqual({ type: "boolean", result: false, isEval: false });
 
 		// Mar 15, 2025: Phase 3 - All users get access
 		expect(
@@ -691,7 +715,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-03-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -700,7 +724,7 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-03-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 
 		expect(
 			evaluateFlag({
@@ -709,6 +733,6 @@ describe("Feature Flag Examples", () => {
 				segments,
 				now: new Date("2025-03-15T00:00:00.000Z").getTime(),
 			}),
-		).toEqual({ type: "boolean", result: true });
+		).toEqual({ type: "boolean", result: true, isEval: true });
 	});
 });
