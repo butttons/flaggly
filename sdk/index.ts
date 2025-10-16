@@ -114,10 +114,14 @@ export type FlagglyOptions<TFlags extends FlagSchema = FlagSchema> = {
 	 */
 	customStorage?: CustomStorage;
 	/**
-	 * Optional method to provide the current route/URL in non-browser enviornments.
+	 * Optional method to provide the current route/URL in non-browser environments.
 	 * By default, it uses `window.location.href`.
 	 */
 	getCurrentRoute?: () => string | null;
+	/**
+	 * Optional method to stub for `crypo.randomUUID` method in non-browser environments.
+	 */
+	getRandomId?: () => string;
 };
 
 export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
@@ -134,6 +138,7 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 	public workerFetch: typeof fetch;
 
 	public getBackupId?: () => string;
+	public getRandomId: () => string;
 
 	#flags: MapStore<EvaluatedFlags<TFlags>> = map();
 
@@ -148,6 +153,7 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 		workerFetch,
 		customStorage,
 		getCurrentRoute,
+		getRandomId,
 	}: FlagglyOptions<TFlags>) {
 		this.url = url;
 		this.apiKey = apiKey;
@@ -156,6 +162,7 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 		this.getBackupId = getBackupId;
 		this.getCurrentRoute = getCurrentRoute;
 		this.workerFetch = workerFetch ?? fetch;
+		this.getRandomId = getRandomId ?? globalThis.crypto.randomUUID;
 
 		this.storage = customStorage ?? {
 			getItem: (key) => {
@@ -233,7 +240,7 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 		const storedId = this.storage.getItem(key);
 
 		if (!storedId) {
-			const newId = globalThis.crypto.randomUUID();
+			const newId = this.getRandomId();
 			this.storage.setItem(key, newId);
 			return newId;
 		}
