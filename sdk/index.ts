@@ -47,6 +47,15 @@ export type EvaluatedFlags<FD extends FlagSchema = FlagSchema> = {
 	};
 };
 
+/**
+ * Defines a custom storage interface for handling backup identifiers.
+ * This allows for persistence in environments where localStorage is not available (e.g., server-side).
+ */
+export type CustomStorage = {
+	getItem(key: string): string | null;
+	setItem(key: string, value: string): void;
+};
+
 export type FlagglyOptions<TFlags extends FlagSchema = FlagSchema> = {
 	/**
 	 * The base URL of your Flaggly worker.
@@ -98,6 +107,21 @@ export type FlagglyOptions<TFlags extends FlagSchema = FlagSchema> = {
 	 * @see https://developers.cloudflare.com/workers/observability/errors/#illegal-invocation-errors
 	 */
 	workerFetch?: typeof fetch;
+	/**
+	 * Optional custom storage implementation for backup IDs, for anonymous users.
+	 * By default, it will use localStorage in browser environments.
+	 * If localStorage is not available, a new ID will be generated on each request.
+	 */
+	customStorage?: CustomStorage;
+	/**
+	 * Optional method to provide the current route/URL in non-browser environments.
+	 * By default, it uses `window.location.href`.
+	 */
+	getCurrentRoute?: () => string | null;
+	/**
+	 * Optional method to stub for `crypo.randomUUID` method in non-browser environments.
+	 */
+	getRandomId?: () => string;
 };
 
 export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
@@ -105,6 +129,8 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 	private apiKey: string;
 	private app: string;
 	private env: string;
+	private storage: CustomStorage;
+	private getCurrentRoute?: () => string | null;
 
 	public user?: unknown;
 	public id?: string;
@@ -112,6 +138,7 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 	public workerFetch: typeof fetch;
 
 	public getBackupId?: () => string;
+	public getRandomId: () => string;
 
 	#flags: MapStore<EvaluatedFlags<TFlags>> = map();
 
@@ -124,13 +151,32 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 		bootstrap,
 		getBackupId,
 		workerFetch,
+		customStorage,
+		getCurrentRoute,
+		getRandomId,
 	}: FlagglyOptions<TFlags>) {
 		this.url = url;
 		this.apiKey = apiKey;
 		this.app = app;
 		this.env = env;
 		this.getBackupId = getBackupId;
+		this.getCurrentRoute = getCurrentRoute;
 		this.workerFetch = workerFetch ?? fetch;
+		this.getRandomId = getRandomId ?? globalThis.crypto.randomUUID;
+
+		this.storage = customStorage ?? {
+			getItem: (key) => {
+				if ("localStorage" in globalThis) {
+					return globalThis.localStorage.getItem(key);
+				}
+				return null;
+			},
+			setItem: (key, value) => {
+				if ("localStorage" in globalThis) {
+					globalThis.localStorage.setItem(key, value);
+				}
+			},
+		};
 
 		const defValues = bootstrap
 			? Object.entries(bootstrap).reduce<EvaluatedFlags<TFlags>>(
@@ -175,6 +221,9 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 	}
 
 	#getPageUrl() {
+		if (this.getCurrentRoute) {
+			return this.getCurrentRoute();
+		}
 		if ("window" in globalThis) {
 			return globalThis.window.location.href;
 		}
@@ -182,21 +231,21 @@ export class Flaggly<TFlags extends FlagSchema = FlagSchema> {
 		return null;
 	}
 
-	#getBackupId() {
+	#getBackupId(): string {
 		if (this.getBackupId) {
 			return this.getBackupId();
 		}
-		if ("window" in globalThis) {
-			const key = `__flaggly_id.${this.app}.${this.env}`;
-			const storage = globalThis.window.localStorage.getItem(key);
-			if (!storage) {
-				const id = globalThis.crypto.randomUUID();
-				globalThis.window.localStorage.setItem(key, id);
-				return id;
-			}
-			return storage;
+
+		const key = `__flaggly_id.${this.app}.${this.env}`;
+		const storedId = this.storage.getItem(key);
+
+		if (!storedId) {
+			const newId = this.getRandomId();
+			this.storage.setItem(key, newId);
+			return newId;
 		}
-		return globalThis.crypto.randomUUID();
+
+		return storedId;
 	}
 
 	async #request<T>(
