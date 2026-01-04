@@ -70,14 +70,39 @@ npx wrangler secret put JWT_SECRET
 ```
 
 ### Updating
-You can update your worker by just pushing the latest code to your github repository. Here is how you can fetch new updates:
-1. Set up git remote url
+You can update your Flaggly worker by pulling the latest changes from the upstream repository. Your `wrangler.jsonc` configuration will be preserved during the update.
+
+> **Note:** If you've modified any files other than `wrangler.jsonc`, back them up before updating.
+
+#### Using the update script (recommended)
 ```sh
-git remote set-url flaggly https://github.com/butttons/flaggly.git
+./update.sh
 ```
-2. Fetch data
+This script will automatically fetch the latest changes, merge them, and preserve your `wrangler.jsonc` configuration.
+
+#### Manual update
+1. Add the upstream remote (first time only)
 ```sh
+git remote add flaggly https://github.com/butttons/flaggly.git
+```
+
+2. Backup your configuration and fetch updates
+```sh
+cp wrangler.jsonc wrangler.jsonc.bak
 git fetch flaggly
+git merge flaggly/main
+```
+
+3. Restore your configuration
+```sh
+mv wrangler.jsonc.bak wrangler.jsonc
+git add wrangler.jsonc
+git commit -m "Update from upstream"
+```
+
+4. Deploy
+```sh
+pnpm deploy
 ```
 
 
