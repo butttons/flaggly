@@ -85,17 +85,20 @@ You can update your Flaggly worker by pulling the latest changes from the upstre
 git remote add flaggly https://github.com/butttons/flaggly.git
 ```
 
-2. Backup config, merge upstream (auto-resolves conflicts in favor of upstream)
+2. Backup config, fetch and merge upstream
 ```sh
 cp wrangler.jsonc wrangler.jsonc.bak
 git fetch flaggly
-git merge -X theirs flaggly/main --no-edit
-mv wrangler.jsonc.bak wrangler.jsonc
-git add wrangler.jsonc
-git commit --amend --no-edit
+git merge -X theirs flaggly/main -m "Update from upstream"
 ```
 
-3. Push and deploy
+3. Restore your config
+```sh
+cp wrangler.jsonc.bak wrangler.jsonc
+rm wrangler.jsonc.bak
+```
+
+4. Push and deploy
 ```sh
 git push
 pnpm deploy
