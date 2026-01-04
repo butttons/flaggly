@@ -1,5 +1,6 @@
 #!/bin/bash
 # Update Flaggly from upstream while preserving your wrangler.jsonc configuration
+# Uses merge with auto-resolution to keep git history clean (no force push needed)
 
 set -e
 
@@ -18,18 +19,21 @@ fi
 echo "Backing up wrangler.jsonc..."
 cp wrangler.jsonc wrangler.jsonc.bak
 
-# Fetch and merge
+# Fetch latest
 echo "Fetching latest changes..."
 git fetch "$REMOTE_NAME"
 
-echo "Merging changes..."
-git merge "$REMOTE_NAME/main" -m "Update from upstream flaggly"
+# Merge upstream, auto-resolve conflicts in favor of upstream
+echo "Merging upstream changes..."
+git merge -X theirs "$REMOTE_NAME/main" --no-edit
 
-# Restore wrangler.jsonc
+# Restore wrangler.jsonc and amend the merge commit
 echo "Restoring your wrangler.jsonc configuration..."
 mv wrangler.jsonc.bak wrangler.jsonc
 git add wrangler.jsonc
+git commit --amend --no-edit
 
 echo ""
 echo "Update complete!"
-echo "Review the changes, then deploy with: pnpm deploy"
+echo "Push with: git push"
+echo "Deploy with: pnpm deploy"
