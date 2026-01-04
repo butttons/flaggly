@@ -11,13 +11,13 @@
 		"enabled": true
 	},
 	"vars": {
-		"ORIGIN": ""
+		"ORIGIN": "",
+		"ENABLE_ANALYTICS": "true"
 	},
 	"kv_namespaces": [
 		{
 			"binding": "FLAGGLY_KV",
-			"id": "",
-			"preview_id": ""
+			"id": "STUB_ID"
 		}
 	],
 	"ratelimits": [

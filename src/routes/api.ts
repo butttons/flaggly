@@ -115,7 +115,7 @@ api.post(
 			}
 		};
 
-		if (analyticsPoints.length > 0) {
+		if (c.env.ENABLE_ANALYTICS === "true" && analyticsPoints.length > 0) {
 			c.executionCtx.waitUntil(writePoints());
 		}
 
@@ -185,7 +185,7 @@ api.post(
 			},
 		});
 
-		if (flag.isTrackable) {
+		if (c.env.ENABLE_ANALYTICS === "true" && flag.isTrackable) {
 			const index = `${c.var.kv.cacheKeys.all()}:${flagKey}`;
 			c.env.FLAGGLY_ANALYTICS.writeDataPoint({
 				blobs: [
