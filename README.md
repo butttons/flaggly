@@ -101,7 +101,6 @@ rm wrangler.jsonc.bak
 4. Push and deploy
 ```sh
 git push
-pnpm deploy
 ```
 
 
@@ -274,7 +273,7 @@ curl -X POST https://flaggly.[ACCOUNT].workers.dev/admin/sync \
   }'
 ```
 
-Sync a singel flags and all its between environments.
+Sync a single flags and all its between environments.
 
 ```sh
 curl -X POST https://flaggly.[ACCOUNT].workers.dev/admin/sync/[FLAG_ID] \
@@ -288,7 +287,7 @@ curl -X POST https://flaggly.[ACCOUNT].workers.dev/admin/sync/[FLAG_ID] \
 ```
 
 ## Usage
-Once you have your flags ready for use, you can install the client side SDK to evaluate them. This guide assumes this is being set up in the front-end. Server side evaluations are handled a little differently when working 
+Once you have your flags ready for use, you can install the client side SDK to evaluate them. This guide assumes this is being set up in the front-end. Server side evaluations are handled a little differently when working with cloudflare workers.
 ```
 pnpm i @flaggly/sdk
 ```
@@ -338,6 +337,9 @@ export const flaggly = new FlagglyClient<Flags>({
     'button-color': '#00FF00'
   }
 });
+
+// Called once you have the user info
+// flaggly.identify(userId: string, user: unknown);
 
 export const useFlags = () => useSyncExternalStore(flaggly.store.subscribe, flaggly.store.get, flaggly.store.get);
 
