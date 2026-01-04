@@ -398,9 +398,230 @@ export const createFlaggly = (env: Env) => new FlagglyClient<Flags>({
 const flaggly = createFlaggly(env);
 ```
 
+## Examples
+
+### Flag examples
+
+#### Kill switch
+Instantly disable a feature without redeploying:
+```json
+{
+  "id": "payments-enabled",
+  "type": "boolean",
+  "enabled": true,
+  "label": "Payment Processing",
+  "description": "Master switch for payment processing"
+}
+```
+```ts
+if (!flaggly.getBooleanFlag('payments-enabled')) {
+  return showMaintenanceMessage();
+}
+```
+
+#### Gradual rollout
+Release a feature to 20% of users, then gradually increase:
+```json
+{
+  "id": "new-dashboard",
+  "type": "boolean",
+  "enabled": true,
+  "rollout": 20,
+  "label": "New Dashboard",
+  "description": "Redesigned dashboard UI"
+}
+```
+
+#### A/B test with variants
+Test different button colors with weighted distribution:
+```json
+{
+  "id": "cta-button-color",
+  "type": "variant",
+  "enabled": true,
+  "variations": [
+    { "id": "control", "label": "Blue (Control)", "weight": 50, "payload": "#0066CC" },
+    { "id": "green", "label": "Green", "weight": 25, "payload": "#00AA44" },
+    { "id": "orange", "label": "Orange", "weight": 25, "payload": "#FF6600" }
+  ]
+}
+```
+```ts
+const buttonColor = flaggly.getVariant('cta-button-color');
+// User always sees the same color based on their ID
+```
+
+#### Remote configuration
+Store dynamic configuration without code changes:
+```json
+{
+  "id": "api-config",
+  "type": "payload",
+  "enabled": true,
+  "payload": {
+    "timeout": 5000,
+    "retries": 3,
+    "baseUrl": "https://api.example.com/v2"
+  }
+}
+```
+
+#### Scheduled rollout
+Release a feature at a specific time:
+```json
+{
+  "id": "black-friday-sale",
+  "type": "boolean",
+  "enabled": true,
+  "rollouts": [
+    { "start": "2024-11-29T00:00:00Z", "percentage": 100 }
+  ]
+}
+```
+
+#### Staged rollout by segment
+Roll out to internal users first, then beta users, then everyone:
+```json
+{
+  "id": "new-editor",
+  "type": "boolean",
+  "enabled": true,
+  "segments": ["internal-users", "beta-users"],
+  "rollouts": [
+    { "start": "2024-01-01T00:00:00Z", "segment": "internal-users" },
+    { "start": "2024-01-15T00:00:00Z", "segment": "beta-users" },
+    { "start": "2024-02-01T00:00:00Z", "percentage": 100 }
+  ]
+}
+```
+
+### Segment examples
+
+Segments are reusable JEXL expressions that define user groups.
+
+#### Company email domain
+Target users with a specific email domain:
+```json
+{
+  "id": "internal-users",
+  "rule": "'@company.com' in user.email"
+}
+```
+
+#### Premium tier users
+Target users on paid plans:
+```json
+{
+  "id": "premium-users",
+  "rule": "user.tier == 'premium' || user.tier == 'enterprise'"
+}
+```
+
+#### Geographic targeting
+Target users in specific regions (requires geo data from Cloudflare):
+```json
+{
+  "id": "eu-users",
+  "rule": "geo.country in ['DE', 'FR', 'IT', 'ES', 'NL']"
+}
+```
+
+#### Beta opt-in users
+Target users who opted into beta features:
+```json
+{
+  "id": "beta-users",
+  "rule": "user.betaOptIn == true"
+}
+```
+
+#### High-value customers
+Target users based on multiple conditions:
+```json
+{
+  "id": "high-value",
+  "rule": "user.totalSpend > 1000 && user.accountAge > 90"
+}
+```
+
+## Security
+
+### JWT token management
+
+Flaggly uses two types of JWT tokens:
+- **User token** (`flaggly.user`) - For client-side SDK, can only evaluate flags
+- **Admin token** (`flaggly.admin`) - For admin API, can create/update/delete flags
+
+Both tokens are signed with your `JWT_SECRET` and have an expiration date.
+
+### Regenerating tokens
+
+If your tokens are compromised or expired, generate new ones:
+
+```sh
+curl -X POST https://flaggly.[ACCOUNT].workers.dev/__generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "[YOUR_JWT_SECRET]",
+    "expireAt": "2025-12-31T23:59:59Z"
+  }'
+```
+
+This returns new `user` and `admin` tokens. Update your applications with the new tokens.
+
+### Rotating the JWT secret
+
+If your `JWT_SECRET` is compromised, you must rotate it:
+
+1. **Generate a new secret** (minimum 32 characters):
+```sh
+openssl rand -base64 32
+```
+
+2. **Update the secret in Cloudflare**:
+```sh
+npx wrangler secret put JWT_SECRET
+# Enter your new secret when prompted
+```
+Or update via the [Cloudflare dashboard](https://developers.cloudflare.com/workers/configuration/secrets/#via-the-dashboard).
+
+3. **Generate new tokens** with the new secret:
+```sh
+curl -X POST https://flaggly.[ACCOUNT].workers.dev/__generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secret": "[NEW_JWT_SECRET]"
+  }'
+```
+
+4. **Update all applications** with the new tokens.
+
+> **Note:** Rotating the secret immediately invalidates ALL existing tokens. Plan for a brief service interruption or coordinate the update across your applications.
 
 ### Technical details
-All flags are are stored in a single KV entry per app/environment in this shape:
+
+#### Architecture
+Flaggly runs as a single Cloudflare Worker with these components:
+- **KV Storage** - All flags and segments for an app/environment are stored as a single JSON entry in Cloudflare KV. Key format: `v1:{appId}:{envId}`
+- **Evaluation Engine** - Uses [JEXL](https://github.com/TomFrost/jexl) for rule expressions with custom transforms (`split`, `lower`, `upper`) and functions (`ts()`, `now()`)
+- **Deterministic Hashing** - FNV-1a 32-bit hash ensures consistent flag evaluations across requests
+
+#### The importance of `id`
+The `id` field passed during evaluation is critical for consistent user experiences:
+
+```ts
+flaggly.identify(userId, { email: user.email, tier: user.tier });
+```
+
+This `id` is combined with the flag key to create a deterministic hash:
+- **Percentage rollouts**: A user with `id: "user-123"` will always be in the same rollout bucket for a given flag
+- **A/B test variants**: The same user always sees the same variant, ensuring consistent experiences
+- **Cross-session consistency**: Even without cookies, the same `id` produces the same results
+
+For anonymous users, generate a stable ID (e.g., fingerprint or localStorage UUID) to maintain consistency.
+
+#### Data model
+All flags are stored in a single KV entry per app/environment in this shape:
 
 ```ts
 
