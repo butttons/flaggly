@@ -1,6 +1,6 @@
 {
   "name": "@flaggly/core",
-  "version": "0.0.2",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "deploy": "wrangler types && wrangler deploy",
