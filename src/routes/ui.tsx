@@ -131,7 +131,7 @@ const FlagCard: FC<FlagCardProps> = ({ flag, app, env }) => {
 			<div class="flex items-center gap-2">
 				<a
 					href={`/app/flags/${encodeURIComponent(flag.id)}/edit${params}`}
-					class="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+					class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-1 px-2.5 rounded transition-colors"
 				>
 					edit
 				</a>
@@ -143,7 +143,7 @@ const FlagCard: FC<FlagCardProps> = ({ flag, app, env }) => {
 				>
 					<button
 						type="submit"
-						class="text-xs text-red-400 hover:text-red-300 transition-colors"
+						class="text-xs bg-red-950/30 hover:bg-red-950/50 text-red-400 py-1 px-2.5 rounded transition-colors"
 					>
 						delete
 					</button>
@@ -175,7 +175,7 @@ const SegmentRow: FC<SegmentRowProps> = ({ segmentId, rule, app, env }) => {
 			>
 				<button
 					type="submit"
-					class="text-xs text-red-400 hover:text-red-300 transition-colors ml-4"
+					class="text-xs bg-red-950/30 hover:bg-red-950/50 text-red-400 py-1 px-2.5 rounded transition-colors ml-4"
 				>
 					delete
 				</button>
