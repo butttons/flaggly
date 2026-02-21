@@ -1,0 +1,79 @@
+name: Update Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to update to (e.g. v0.0.2). Leave empty for latest release."
+        required: false
+        default: ""
+
+jobs:
+  update:
+    name: Update worker from upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG=$(curl -s https://api.github.com/repos/butttons/flaggly/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+            if [ -z "$TAG" ]; then
+              echo "Failed to fetch latest release tag"
+              exit 1
+            fi
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download upstream worker
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "Updating to ${TAG}"
+
+          curl -sL "https://github.com/butttons/flaggly/archive/refs/tags/${TAG}.tar.gz" -o upstream.tar.gz
+          tar -xzf upstream.tar.gz
+
+          EXTRACTED=$(ls -d flaggly-*)
+
+          if [ ! -d "$EXTRACTED" ]; then
+            echo "Upstream archive not found"
+            exit 1
+          fi
+
+          # Preserve wrangler.jsonc
+          cp wrangler.jsonc wrangler.jsonc.bak
+
+          # Remove everything except .git and the backup
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name '.git' \
+            ! -name 'wrangler.jsonc.bak' \
+            ! -name 'upstream.tar.gz' \
+            ! -name "$EXTRACTED" \
+            -exec rm -rf {} +
+
+          # Copy upstream files
+          cp -r "$EXTRACTED"/. .
+
+          # Restore wrangler.jsonc
+          mv wrangler.jsonc.bak wrangler.jsonc
+
+          # Clean up
+          rm -rf upstream.tar.gz "$EXTRACTED"
+
+      - name: Commit and push
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Already up to date with ${TAG}"
+            exit 0
+          fi
+          git commit -m "update worker to ${TAG}"
+          git push
