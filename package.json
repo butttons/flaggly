@@ -1,6 +1,6 @@
 {
-  "name": "@flaggly/core",
-  "version": "0.0.1",
+  "name": "@butttons/flaggly",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
     "deploy": "wrangler types && wrangler deploy",
