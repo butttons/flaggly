@@ -70,14 +70,17 @@ npx wrangler secret put JWT_SECRET
 ```
 
 ### Updating
-You can update your Flaggly worker by pulling the latest changes from the upstream repository. Your `wrangler.jsonc` configuration will be preserved during the update.
+
+Update your worker when a new version is released. Your `wrangler.jsonc` is never overwritten -- all your KV namespace IDs, secrets, and other settings are preserved.
 
 > **Note:** This will discard any local changes except `wrangler.jsonc`. Back up any custom modifications before updating.
 
-#### Using the update script (recommended)
-```sh
-./update.sh
-```
+#### Using the GitHub Actions workflow (recommended)
+1. Go to your worker repo on GitHub
+2. Navigate to **Actions** > **Update Worker**
+3. Click **Run workflow**
+4. Optionally enter a specific version tag (e.g. `v0.0.2`), or leave empty for the latest release
+5. The workflow downloads the latest worker code, preserves your `wrangler.jsonc`, and commits the update
 
 #### Manual update
 1. Add the upstream remote (first time only)
@@ -103,7 +106,19 @@ rm wrangler.jsonc.bak
 git push
 ```
 
+## Admin UI
 
+Flaggly includes a built-in admin UI for managing flags and segments. It is served at `/app` and protected by HTTP Basic Auth.
+
+- **Username:** `flaggly`
+- **Password:** your `JWT_SECRET`
+
+The UI lets you:
+- View all flags and segments for any app/environment
+- Create, edit, and delete flags (boolean, payload, variant)
+- Toggle flags on/off
+- Create and delete segments
+- Switch between apps and environments
 
 ## Configuration
 You can interact with your worker once it's deployed. Before proceeding, you will need the following:
