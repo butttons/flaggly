@@ -1,5 +1,5 @@
 {
-  "name": "@butttons/flaggly",
+  "name": "@flaggly/core",
   "version": "0.0.2",
   "private": true,
   "scripts": {
