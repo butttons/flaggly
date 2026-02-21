@@ -170,3 +170,6 @@ dist
 .vscode
 
 worker-configuration.d.ts
+
+# dora code context index
+.dora/

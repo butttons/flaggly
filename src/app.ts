@@ -1,3 +1,4 @@
+import { basicAuth } from "hono/basic-auth";
 import { cors } from "hono/cors";
 import { sign } from "hono/jwt";
 import { poweredBy } from "hono/powered-by";
@@ -9,6 +10,7 @@ import { FlagglyError } from "./error";
 import { createApp } from "./routes/_app";
 import { admin } from "./routes/admin";
 import { api } from "./routes/api";
+import { ui } from "./routes/ui";
 import { baseHeaderSchema } from "./schema";
 import { AppKV } from "./storage";
 
@@ -46,8 +48,8 @@ app.use(
 
 app.use(async (c, next) => {
 	const appHeaders = baseHeaderSchema.parse({
-		app: c.req.header("x-app-id"),
-		env: c.req.header("x-env-id"),
+		app: c.req.header("x-app-id") || c.req.query("app"),
+		env: c.req.header("x-env-id") || c.req.query("env"),
 	});
 
 	const kv = new AppKV({
@@ -61,8 +63,20 @@ app.use(async (c, next) => {
 	await next();
 });
 
+app.use("/app/*", (c, next) => {
+	const handler = basicAuth({
+		verifyUser: (username, password) => {
+			return username === "flaggly" && password === c.env.JWT_SECRET;
+		},
+	});
+	return handler(c, next);
+});
+
 app.route("/api", api);
 app.route("/admin", admin);
+app.route("/app", ui);
+
+app.get("/", (c) => c.redirect("/app"));
 
 const secretSchema = object({
 	secret: string().check(minLength(32)),
