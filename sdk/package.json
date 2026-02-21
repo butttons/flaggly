@@ -1,12 +1,13 @@
 {
 	"name": "@flaggly/sdk",
-	"version": "0.1.0",
+	"version": "0.0.2",
 	"description": "Client SDK for Flaggly",
 	"main": "dist/index.js",
 	"module": "dist/index.mjs",
 	"types": "dist/index.d.ts",
 	"files": [
-		"dist"
+		"dist",
+		"README.md"
 	],
 	"keywords": [
 		"feature-flags",
