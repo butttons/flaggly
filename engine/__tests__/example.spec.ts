@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { evaluateFlag } from "../engine.ts";
-import type { FlagEvaluationInput } from "../schema.ts";
+import type { FlagEvaluationInput } from "../types.ts";
 
 /**
  * Helper to create properly structured evaluation input

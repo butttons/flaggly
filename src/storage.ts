@@ -1,5 +1,5 @@
 import { FlagglyError, tryPromise } from "./error";
-import type { AppData, FeatureFlagInputSchema } from "@flaggly/engine";
+import type { AppData, FeatureFlagInputSchema } from "./schema";
 import type {
 	SegmentInputSchema,
 	SyncInput,

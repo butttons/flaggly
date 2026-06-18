@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { FeatureFlagInputSchema } from "@flaggly/engine";
+import type { FeatureFlagInputSchema } from "../schema";
 import { AppKV } from "../storage";
 
 function createMockKV(): KVNamespace {

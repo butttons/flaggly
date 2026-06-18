@@ -18,11 +18,17 @@
 	"author": "butttons",
 	"license": "MIT",
 	"dependencies": {
-		"jexl": "^2.3.0",
-		"zod": "^4.1.11"
+		"jexl": "^2.3.0"
 	},
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/butttons/flaggly"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js"
+		}
 	}
 }

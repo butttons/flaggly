@@ -4,7 +4,7 @@ import {
 	evaluateRolloutStep,
 	evaluateRolloutSteps,
 } from "../engine.ts";
-import type { FeatureFlagInputSchema, FlagEvaluationInput } from "../schema.ts";
+import type { FeatureFlagInputSchema, FlagEvaluationInput } from "../types.ts";
 
 function createMockInput(
 	overrides?: Partial<FlagEvaluationInput>,

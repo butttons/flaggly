@@ -2,7 +2,8 @@ import { jwt } from "hono/jwt";
 import { validator } from "hono/validator";
 import { omit } from "zod/v4-mini";
 
-import { evaluateFlag, evaluateInputSchema, requestGeoSchema } from "@flaggly/engine";
+import { evaluateFlag } from "@flaggly/engine";
+import { evaluateInputSchema, requestGeoSchema } from "../schema";
 import { FlagglyError } from "../error";
 import { paramSchema } from "../schema";
 import { createApp } from "./_app";
