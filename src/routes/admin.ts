@@ -2,8 +2,8 @@ import { jwt } from "hono/jwt";
 import { validator } from "hono/validator";
 import { object, string } from "zod/v4-mini";
 import { FlagglyError } from "../error";
+import { inputFeatureFlagSchema } from "@flaggly/engine";
 import {
-	inputFeatureFlagSchema,
 	segmentInputSchema,
 	syncInputSchema,
 	updateableFeatureFlagSchema,

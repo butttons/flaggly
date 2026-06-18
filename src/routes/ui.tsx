@@ -1,7 +1,8 @@
 import { html } from "hono/html";
 import type { FC } from "hono/jsx";
-import type { AppData, FeatureFlagInputSchema } from "../schema";
-import { inputFeatureFlagSchema, segmentInputSchema } from "../schema";
+import type { AppData, FeatureFlagInputSchema } from "@flaggly/engine";
+import { inputFeatureFlagSchema } from "@flaggly/engine";
+import { segmentInputSchema } from "../schema";
 import { buildUrl, Layout } from "../components/Layout";
 import { createApp } from "./_app";
 

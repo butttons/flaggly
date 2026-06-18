@@ -3,8 +3,8 @@ import {
 	evaluateFlag,
 	evaluateRolloutStep,
 	evaluateRolloutSteps,
-} from "../engine";
-import type { FeatureFlagInputSchema, FlagEvaluationInput } from "../schema";
+} from "../engine.ts";
+import type { FeatureFlagInputSchema, FlagEvaluationInput } from "../schema.ts";
 
 function createMockInput(
 	overrides?: Partial<FlagEvaluationInput>,

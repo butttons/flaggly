@@ -1,0 +1,28 @@
+{
+	"name": "@flaggly/engine",
+	"version": "0.2.0",
+	"description": "Flaggly feature flag evaluation engine",
+	"main": "dist/index.js",
+	"module": "dist/index.mjs",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"keywords": [
+		"feature-flags",
+		"engine",
+		"typescript",
+		"cloudflare"
+	],
+	"author": "butttons",
+	"license": "MIT",
+	"dependencies": {
+		"jexl": "^2.3.0",
+		"zod": "^4.1.11"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/butttons/flaggly"
+	}
+}

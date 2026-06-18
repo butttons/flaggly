@@ -2,9 +2,9 @@ import { jwt } from "hono/jwt";
 import { validator } from "hono/validator";
 import { omit } from "zod/v4-mini";
 
-import { evaluateFlag } from "../engine";
+import { evaluateFlag, evaluateInputSchema, requestGeoSchema } from "@flaggly/engine";
 import { FlagglyError } from "../error";
-import { evaluateInputSchema, paramSchema, requestGeoSchema } from "../schema";
+import { paramSchema } from "../schema";
 import { createApp } from "./_app";
 
 export const api = createApp();
