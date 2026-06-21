@@ -1,7 +1,6 @@
 import { FlagglyError, tryPromise } from "./error";
+import type { AppData, FeatureFlagInputSchema } from "./schema";
 import type {
-	AppData,
-	FeatureFlagInputSchema,
 	SegmentInputSchema,
 	SyncInput,
 	UpdatableFeatureFlagSchema,
