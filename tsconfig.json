@@ -25,8 +25,11 @@
 			"./worker-configuration.d.ts",
 			"@types/node",
 			"@types/service-worker-mock"
-		]
+		],
+		"paths": {
+			"@flaggly/engine": ["./engine/index.ts"]
+		}
 	},
-	"exclude": ["node_modules", "dist", "tests"],
-	"include": ["src", "worker-configuration.d.ts"]
+	"exclude": ["node_modules", "dist", "tests", "engine/dist", "**/*.spec.ts"],
+	"include": ["src", "engine", "worker-configuration.d.ts"]
 }

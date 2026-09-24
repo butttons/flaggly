@@ -3,7 +3,7 @@ import type {
 	FeatureFlagInputSchema,
 	FlagEvaluationInput,
 	FlagResultSchema,
-} from "./schema";
+} from "./types";
 
 jexl.addTransform("split", (val, char) => val.split(char));
 jexl.addTransform("lower", (val) => val.toLowerCase());
